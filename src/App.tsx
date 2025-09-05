@@ -303,4 +303,5 @@ export default function App() {
         </Accordion.Item>
       </Accordion>
     </>
+  );
 }
