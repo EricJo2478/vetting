@@ -8,7 +8,7 @@ import {
   type User,
 } from "firebase/auth";
 import { useEffect, useState } from "react";
-import NavBar from "./components/Navbar";
+import NavBar from "./components/NavBar";
 import { Accordion } from "react-bootstrap";
 import ModalButton from "./components/ModalButton";
 // TODO: Add SDKs for Firebase products that you want to use
