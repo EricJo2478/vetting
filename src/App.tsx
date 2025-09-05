@@ -59,6 +59,17 @@ export default function App() {
 
   return (
     <>
+      <NavBar
+        user={user}
+        setPage={setPage}
+        setUser={setUser}
+        openLogin={handleGoogleLogin}
+      />
+      <h1>Welcome to the CISV Saskatoon Volunteer Vetting page</h1>
+      <p>
+        Below you will find a section on each step walking you through what is
+        required to volunteer at a CISV programme (if you are over 18 years
+        old).
       </p>
     </>
 }
