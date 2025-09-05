@@ -11,6 +11,7 @@ import { useEffect, useState } from "react";
 import NavBar from "./components/NavBar";
 import { Accordion } from "react-bootstrap";
 import ModalButton from "./components/ModalButton";
+import StatusBadge from "./components/StatusBadge";
 // TODO: Add SDKs for Firebase products that you want to use
 // https://firebase.google.com/docs/web/setup#available-libraries
 
@@ -73,7 +74,10 @@ export default function App() {
       </p>
       <Accordion defaultActiveKey="1">
         <Accordion.Item eventKey="1">
-          <Accordion.Header>Be a member of CISV Saskatoon</Accordion.Header>
+          <Accordion.Header>
+            Be a member of CISV Saskatoon
+            {user && <StatusBadge status="Action Needed" />}
+          </Accordion.Header>
           <Accordion.Body>
             <p>
               As a sign of our appreciation, for mini camp we are providing
@@ -92,7 +96,9 @@ export default function App() {
           </Accordion.Body>
         </Accordion.Item>
         <Accordion.Item eventKey="2">
-          <Accordion.Header>Reference</Accordion.Header>
+          <Accordion.Header>
+            Reference {user && <StatusBadge status="Action Needed" />}
+          </Accordion.Header>
           <Accordion.Body>
             <p>
               Your reference should be provided by someone who is either a
@@ -143,7 +149,10 @@ export default function App() {
           </Accordion.Body>
         </Accordion.Item>
         <Accordion.Item eventKey="3">
-          <Accordion.Header>Criminal Record Check</Accordion.Header>
+          <Accordion.Header>
+            Criminal Record Check{" "}
+            {user && <StatusBadge status="Action Needed" />}
+          </Accordion.Header>
           <Accordion.Body>
             <p>
               CISV Saskatoon’s risk manager must have a criminal record and
@@ -203,7 +212,9 @@ export default function App() {
           </Accordion.Body>
         </Accordion.Item>
         <Accordion.Item eventKey="4">
-          <Accordion.Header>Show Photo ID</Accordion.Header>
+          <Accordion.Header>
+            Show Photo ID {user && <StatusBadge status="Action Needed" />}
+          </Accordion.Header>
           <Accordion.Body>
             <p>
               When providing the risk manager with your criminal record check
@@ -213,7 +224,10 @@ export default function App() {
           </Accordion.Body>
         </Accordion.Item>
         <Accordion.Item eventKey="5">
-          <Accordion.Header>Voluntary Self-Declaration Form</Accordion.Header>
+          <Accordion.Header>
+            Voluntary Self-Declaration Form{" "}
+            {user && <StatusBadge status="Action Needed" />}
+          </Accordion.Header>
           <Accordion.Body>
             <p>
               Fill in the{" "}
@@ -231,7 +245,10 @@ export default function App() {
           </Accordion.Body>
         </Accordion.Item>
         <Accordion.Item eventKey="6">
-          <Accordion.Header>Adult Code of Behaviour Form</Accordion.Header>
+          <Accordion.Header>
+            Adult Code of Behaviour Form{" "}
+            {user && <StatusBadge status="Action Needed" />}
+          </Accordion.Header>
           <Accordion.Body>
             Read and agree to the{" "}
             <a href="https://docs.google.com/forms/d/e/1FAIpQLSeKrtMh_VfZCR2T5kzuwtaXuDgoazrorEOcDfjU7zaO3mV0yw/viewform">
@@ -241,7 +258,9 @@ export default function App() {
           </Accordion.Body>
         </Accordion.Item>
         <Accordion.Item eventKey="7">
-          <Accordion.Header>My CISV Account</Accordion.Header>
+          <Accordion.Header>
+            My CISV Account {user && <StatusBadge status="Action Needed" />}
+          </Accordion.Header>
           <Accordion.Body>
             <p>
               All volunteers participating in CISV activities must be a
@@ -254,7 +273,10 @@ export default function App() {
           </Accordion.Body>
         </Accordion.Item>
         <Accordion.Item eventKey="8">
-          <Accordion.Header>First Aiders (optional)</Accordion.Header>
+          <Accordion.Header>
+            First Aiders (optional){" "}
+            {user && <StatusBadge status="Not Required" />}
+          </Accordion.Header>
           <Accordion.Body>
             <p>
               Let us know if you are able to fulfill the duties of “first aider”
@@ -274,7 +296,10 @@ export default function App() {
           </Accordion.Body>
         </Accordion.Item>
         <Accordion.Item eventKey="9">
-          <Accordion.Header>Volunteer Drivers (optional)</Accordion.Header>
+          <Accordion.Header>
+            Volunteer Drivers (optional){" "}
+            {user && <StatusBadge status="Not Required" />}
+          </Accordion.Header>
           <Accordion.Body>
             <p>
               Only required by those who have been assigned to this duty. If you
