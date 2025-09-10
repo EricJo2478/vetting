@@ -17,11 +17,11 @@ import {
 } from "firebase/firestore";
 import { useEffect, useState } from "react";
 import NavBar from "./components/NavBar";
-import { Accordion } from "react-bootstrap";
-import VettingItem from "./components/VettingItem";
+import StepData, { fetchSteps } from "./datasets/StepData";
+import RoleData, { fetchRoles } from "./datasets/RoleData";
 import Role from "./components/Role";
-import Step, { fetchSteps } from "./components/Step";
-import { fetchRoles } from "./components/Role";
+import { Accordion, Col, Nav, Row, Tab } from "react-bootstrap";
+import Step from "./components/Step";
 // TODO: Add SDKs for Firebase products that you want to use
 // https://firebase.google.com/docs/web/setup#available-libraries
 
@@ -41,12 +41,16 @@ export const auth = getAuth(app);
 export const firestore = getFirestore(app);
 export const googleProvider = new GoogleAuthProvider();
 
+export interface IdList<T> {
+  [id: string]: T;
+}
+
 export default function App() {
   const [page, setPage] = useState("home");
   const [user, setUser] = useState(null as User | null);
   const [loading, setLoading] = useState(true);
-  const [roles, setRoles] = useState({} as { [id: string]: Role });
-  const [steps, setSteps] = useState({} as { [id: string]: Step });
+  const [roles, setRoles] = useState({} as IdList<RoleData>);
+  const [steps, setSteps] = useState({} as IdList<StepData>);
 
   let docRef: null | DocumentReference = null;
   if (user) {
@@ -55,19 +59,7 @@ export default function App() {
 
   const generateUserData = () => {
     if (user && docRef) {
-      console.log(user.uid, user.displayName);
-      const statuses = [
-        "Action Needed",
-        "Action Needed",
-        "Action Needed",
-        "Action Needed",
-        "Action Needed",
-        "Action Needed",
-        "Action Needed",
-        "Not Required",
-        "Not Required",
-      ];
-      const data = { name: user.displayName, statuses: statuses };
+      const data = { name: user.displayName };
       setDoc(docRef, data);
     }
   };
@@ -96,15 +88,15 @@ export default function App() {
       const unsubscribe = onSnapshot(docRef, (snapshot) => {
         const docs = snapshot.data();
         if (docs === undefined) {
-          generateUserData();
+          // generateUserData();
         } else {
-          const statuses: { [id: string]: number } = docs.statuses;
-          const keys = Object.keys(statuses);
-          Object.values(steps).forEach((step) => {
-            if (keys.includes(step.getId())) {
-              step.setStatus(statuses[step.getId()]);
-            }
-          });
+          // const statuses: { [id: string]: number } = docs.statuses;
+          // const keys = Object.keys(statuses);
+          // Object.values(steps).forEach((step) => {
+          //   if (keys.includes(step.id)) {
+          //     step.setStatus(statuses[step.getId()]);
+          //   }
+          // });
         }
       });
 
@@ -112,15 +104,6 @@ export default function App() {
       return () => unsubscribe();
     }
   }, [loading, user]); // Empty dependency array means this effect runs once on mount
-
-  const changeStatus = (id: string, status: number) => {
-    if (steps[id]) {
-      steps[id].setStatus(status);
-      if (docRef) {
-        updateDoc(docRef, { statuses: { [id]: status } });
-      }
-    }
-  };
 
   const handleGoogleLogin = async () => {
     console.log(auth, googleProvider);
@@ -144,11 +127,45 @@ export default function App() {
       />
       <h1>Welcome to the CISV Saskatoon Volunteer Vetting page</h1>
       <p>
+        There are many different roles you can fill as a volunteer within our
+        chapter. Each role has different vetting requirements to ensure
+        safeguarding for participants. You can be vetted for multiple roles at a
+        time. You can view the steps to be vetted for each role seperately. If
+        you wish to use our vetting tracker please log in by pressing the log in
+        button on the top right corner. Once logged in you can select a role to
+        help you track your vetting status.
+      </p>
+      {/* <p>
         Below you will find a section on each step walking you through what is
         required to volunteer at a CISV programme (if you are over 18 years
         old).
-      </p>
-      {Object.values(roles).map((role) => role.render())}
+      </p> */}
+      {page === "home" && (
+        <Tab.Container id="left-tabs-example" defaultActiveKey="first">
+          <Row>
+            <Col sm={3}>
+              <Nav variant="pills" className="flex-column">
+                {Object.values(roles).map((role) => (
+                  <Role key={role.id} data={role} />
+                ))}
+              </Nav>
+            </Col>
+            <Col sm={9}>
+              <Tab.Content>
+                {Object.values(roles).map((role) => (
+                  <Tab.Pane eventKey={role.id} key={role.id}>
+                    <Accordion>
+                      {Object.values(role.steps).map((step) => (
+                        <Step key={step.id} data={step} />
+                      ))}
+                    </Accordion>
+                  </Tab.Pane>
+                ))}
+              </Tab.Content>
+            </Col>
+          </Row>
+        </Tab.Container>
+      )}
     </>
   );
 }
