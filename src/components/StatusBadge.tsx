@@ -1,5 +1,4 @@
 import { Badge, OverlayTrigger, Tooltip } from "react-bootstrap";
-import { StepStatus, RoleStatus } from "../datasets/UserData";
 
 interface Props {
   tooltip?: boolean;
@@ -36,7 +35,9 @@ export default function StatusBadge({ status, tooltip = false }: Props) {
         delay={{ show: 250, hide: 400 }}
         overlay={renderTooltip}
       >
-        <Badge bg={colours[status]}>{status}</Badge>
+        <Badge className="ms-1" bg={colours[status]}>
+          {status}
+        </Badge>
       </OverlayTrigger>
     );
   }

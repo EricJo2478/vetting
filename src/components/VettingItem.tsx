@@ -1,10 +1,11 @@
 import { Accordion, Button, Card, useAccordionButton } from "react-bootstrap";
-import StatusBadge, { Status } from "./StatusBadge";
+import StatusBadge from "./StatusBadge";
+import { StepStatus } from "../datasets/UserData";
 
 interface Props {
   eventKey: string;
   title: string;
-  status?: Status;
+  status?: StepStatus | null;
   children?: any;
   handleComplete: () => void;
 }
@@ -12,7 +13,7 @@ interface Props {
 export default function VettingItem({
   eventKey,
   title,
-  status,
+  status = null,
   children = "",
   handleComplete,
 }: Props) {
@@ -38,7 +39,7 @@ interface HeaderProps {
   eventKey: string;
   onButtonClick: (e: any) => void;
   hasButton: boolean;
-  status?: Status;
+  status: StepStatus | null;
 }
 
 function ItemHeader({

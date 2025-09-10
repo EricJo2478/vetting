@@ -34,6 +34,7 @@ export default class UserData {
   }
 
   saveUserData() {
+    console.log(this);
     updateDoc(this.docRef, { roles: this.roles, steps: this.steps });
   }
 }

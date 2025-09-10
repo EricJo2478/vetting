@@ -23,6 +23,7 @@ import UserData, { fetchUserData } from "./datasets/UserData";
 import { Accordion, Button, Col, Nav, Row, Tab } from "react-bootstrap";
 import Step from "./components/Step";
 import StatusBadge from "./components/StatusBadge";
+import StatusBar from "./components/StatusBar";
 // TODO: Add SDKs for Firebase products that you want to use
 // https://firebase.google.com/docs/web/setup#available-libraries
 
@@ -49,37 +50,33 @@ export interface IdList<T> {
 export default function App() {
   const [page, setPage] = useState("home");
   const [user, setUser] = useState(null as UserData | null);
+  const [currentUser, setCurrentUser] = useState(null as User | null);
   const [loading, setLoading] = useState(true);
   const [roles, setRoles] = useState({} as IdList<RoleData>);
   const [steps, setSteps] = useState({} as IdList<StepData>);
 
   useEffect(() => {
-    if (!loading) {
-      fetchSteps().then((steps) => {
-        fetchRoles(steps).then((roles) => {
-          setRoles(roles);
-          if (user)
-            fetchUserData(user, Object.keys(roles), Object.keys(steps)).then(
-              (userData) => setUser(userData)
-            );
-        });
-        setSteps(steps);
+    fetchSteps().then((steps) => {
+      fetchRoles(steps).then((roles) => {
+        setRoles(roles);
       });
-    }
-  }, [loading]);
+      setSteps(steps);
+      setLoading(false);
+    });
+  }, []);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
-      setUser(user ? new UserData(user) : null);
-      setLoading(false);
+      setCurrentUser(user);
+      if (user) setUser(new UserData(user));
     });
 
     // Clean up the listener when the component unmounts
     return () => unsubscribe();
-  }, []); // Empty dependency array ensures this runs once on mount
+  }, []);
 
   useEffect(() => {
-    if (user) {
+    if (!loading && user) {
       const unsubscribe = onSnapshot(user.docRef, (snapshot) => {
         const docs = snapshot.data();
         if (docs === undefined) {
@@ -95,7 +92,7 @@ export default function App() {
       // Cleanup function to unsubscribe when the component unmounts
       return () => unsubscribe();
     }
-  }, [user]); // Empty dependency array means this effect runs once on mount
+  }, [currentUser, loading]); // Empty dependency array means this effect runs once on mount
 
   const handleGoogleLogin = async () => {
     try {
@@ -111,7 +108,7 @@ export default function App() {
   return (
     <>
       <NavBar
-        user={user?.user}
+        user={currentUser}
         setPage={setPage}
         setUser={setUser}
         openLogin={handleGoogleLogin}
@@ -151,15 +148,38 @@ export default function App() {
                       <Button
                         onClick={() => {
                           user.roles[role.id] = "In-Progress";
+                          role.steps.forEach((step) => {
+                            if (user.steps[step.id] === null)
+                              user.steps[step.id] = "Action Needed";
+                          });
                           user.saveUserData();
                         }}
                       >
                         Start Vetting
                       </Button>
                     )}
+                    {user && user.roles[role.id] !== null && (
+                      <StatusBar stepStatus={user.steps} steps={role.steps} />
+                    )}
                     <Accordion>
                       {Object.values(role.steps).map((step) => (
-                        <Step key={step.id} data={step} />
+                        <Step
+                          key={step.id}
+                          data={step}
+                          startingStatus={
+                            user
+                              ? user.roles[role.id]
+                                ? user.steps[step.id]
+                                : null
+                              : null
+                          }
+                          onComplete={(id: string) => {
+                            if (user) {
+                              user.steps[id] = "Awaiting Approval";
+                              user.saveUserData();
+                            }
+                          }}
+                        />
                       ))}
                     </Accordion>
                   </Tab.Pane>

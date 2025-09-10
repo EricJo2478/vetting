@@ -1,4 +1,4 @@
-import { ReactNode, useState } from "react";
+import { useEffect, useState } from "react";
 import StatusBadge from "./StatusBadge";
 import ModalButton from "./ModalButton";
 import StepData from "../datasets/StepData";
@@ -7,11 +7,18 @@ import { StepStatus } from "../datasets/UserData";
 
 interface Props {
   data: StepData;
+  startingStatus?: StepStatus | null;
+  onComplete: (id: string) => void;
 }
 
-export default function Step({ data }: Props) {
-  const [status, setStatus] = useState(null as StepStatus | null);
+export default function Step({
+  data,
+  startingStatus = null,
+  onComplete,
+}: Props) {
+  const [status, setStatus] = useState(startingStatus as StepStatus | null);
   const decoratedOnClick = useAccordionButton(data.id);
+  useEffect(() => setStatus(startingStatus), [startingStatus]);
   return (
     <Card>
       <Card.Header>
@@ -27,12 +34,15 @@ export default function Step({ data }: Props) {
             style={{ flexGrow: 1, cursor: "pointer" }}
           >
             {data.name}
-            <StatusBadge status={status} />
+            <StatusBadge tooltip status={status} />
           </div>
           {status === "Action Needed" && (
             <Button
               variant="primary"
-              onClick={() => setStatus("Awaiting Approval")}
+              onClick={() => {
+                setStatus("Awaiting Approval");
+                onComplete(data.id);
+              }}
             >
               Mark Action Completed
             </Button>
