@@ -1,15 +1,16 @@
 import { ReactNode, useState } from "react";
-import StatusBadge, { Status } from "./StatusBadge";
+import StatusBadge from "./StatusBadge";
 import ModalButton from "./ModalButton";
 import StepData from "../datasets/StepData";
 import { Accordion, Button, Card, useAccordionButton } from "react-bootstrap";
+import { StepStatus } from "../datasets/UserData";
 
 interface Props {
   data: StepData;
 }
 
 export default function Step({ data }: Props) {
-  const [status, setStatus] = useState(undefined as Status | undefined);
+  const [status, setStatus] = useState(null as StepStatus | null);
   const decoratedOnClick = useAccordionButton(data.id);
   return (
     <Card>

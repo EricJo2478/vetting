@@ -19,9 +19,10 @@ import { useEffect, useState } from "react";
 import NavBar from "./components/NavBar";
 import StepData, { fetchSteps } from "./datasets/StepData";
 import RoleData, { fetchRoles } from "./datasets/RoleData";
-import Role from "./components/Role";
-import { Accordion, Col, Nav, Row, Tab } from "react-bootstrap";
+import UserData, { fetchUserData } from "./datasets/UserData";
+import { Accordion, Button, Col, Nav, Row, Tab } from "react-bootstrap";
 import Step from "./components/Step";
+import StatusBadge from "./components/StatusBadge";
 // TODO: Add SDKs for Firebase products that you want to use
 // https://firebase.google.com/docs/web/setup#available-libraries
 
@@ -47,27 +48,21 @@ export interface IdList<T> {
 
 export default function App() {
   const [page, setPage] = useState("home");
-  const [user, setUser] = useState(null as User | null);
+  const [user, setUser] = useState(null as UserData | null);
   const [loading, setLoading] = useState(true);
   const [roles, setRoles] = useState({} as IdList<RoleData>);
   const [steps, setSteps] = useState({} as IdList<StepData>);
 
-  let docRef: null | DocumentReference = null;
-  if (user) {
-    docRef = doc(firestore, "users", user.uid);
-  }
-
-  const generateUserData = () => {
-    if (user && docRef) {
-      const data = { name: user.displayName };
-      setDoc(docRef, data);
-    }
-  };
-
   useEffect(() => {
     if (!loading) {
       fetchSteps().then((steps) => {
-        fetchRoles(steps).then((roles) => setRoles(roles));
+        fetchRoles(steps).then((roles) => {
+          setRoles(roles);
+          if (user)
+            fetchUserData(user, Object.keys(roles), Object.keys(steps)).then(
+              (userData) => setUser(userData)
+            );
+        });
         setSteps(steps);
       });
     }
@@ -75,7 +70,7 @@ export default function App() {
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
-      setUser(user);
+      setUser(user ? new UserData(user) : null);
       setLoading(false);
     });
 
@@ -84,32 +79,28 @@ export default function App() {
   }, []); // Empty dependency array ensures this runs once on mount
 
   useEffect(() => {
-    if (!loading && docRef !== null) {
-      const unsubscribe = onSnapshot(docRef, (snapshot) => {
+    if (user) {
+      const unsubscribe = onSnapshot(user.docRef, (snapshot) => {
         const docs = snapshot.data();
         if (docs === undefined) {
-          // generateUserData();
+          fetchUserData(user, Object.keys(roles), Object.keys(steps)).then(
+            (userData) => setUser(userData)
+          );
         } else {
-          // const statuses: { [id: string]: number } = docs.statuses;
-          // const keys = Object.keys(statuses);
-          // Object.values(steps).forEach((step) => {
-          //   if (keys.includes(step.id)) {
-          //     step.setStatus(statuses[step.getId()]);
-          //   }
-          // });
+          const userData = new UserData(user.user, docs);
+          setUser(userData);
         }
       });
 
       // Cleanup function to unsubscribe when the component unmounts
       return () => unsubscribe();
     }
-  }, [loading, user]); // Empty dependency array means this effect runs once on mount
+  }, [user]); // Empty dependency array means this effect runs once on mount
 
   const handleGoogleLogin = async () => {
-    console.log(auth, googleProvider);
     try {
       const user = await signInWithPopup(auth, googleProvider);
-      setUser(user.user);
+      setUser(new UserData(user.user));
       // User successfully logged in, redirect or update UI
       console.log("User logged in with Google!");
     } catch (error) {
@@ -120,7 +111,7 @@ export default function App() {
   return (
     <>
       <NavBar
-        user={user}
+        user={user?.user}
         setPage={setPage}
         setUser={setUser}
         openLogin={handleGoogleLogin}
@@ -135,25 +126,37 @@ export default function App() {
         selecting it on the left. If you wish to use our vetting tracker please
         log in by pressing the log in button in the top right corner.
       </p>
-      {/* <p>
-        Below you will find a section on each step walking you through what is
-        required to volunteer at a CISV programme (if you are over 18 years
-        old).
-      </p> */}
       {page === "home" && (
-        <Tab.Container id="left-tabs-example" defaultActiveKey="first">
+        <Tab.Container id="left-tabs-example">
           <Row>
             <Col sm={3}>
+              <h3>Roles</h3>
               <Nav variant="pills" className="flex-column">
                 {Object.values(roles).map((role) => (
-                  <Role key={role.id} data={role} />
+                  <Nav.Item key={role.id}>
+                    <Nav.Link eventKey={role.id}>
+                      {role.name}
+                      {user && <StatusBadge status={user.roles[role.id]} />}
+                    </Nav.Link>
+                  </Nav.Item>
                 ))}
               </Nav>
             </Col>
             <Col sm={9}>
+              <h3>Vetting Steps</h3>
               <Tab.Content>
                 {Object.values(roles).map((role) => (
                   <Tab.Pane eventKey={role.id} key={role.id}>
+                    {user && user.roles[role.id] === null && (
+                      <Button
+                        onClick={() => {
+                          user.roles[role.id] = "In-Progress";
+                          user.saveUserData();
+                        }}
+                      >
+                        Start Vetting
+                      </Button>
+                    )}
                     <Accordion>
                       {Object.values(role.steps).map((step) => (
                         <Step key={step.id} data={step} />
