@@ -1,25 +1,12 @@
-import { Badge, Container, OverlayTrigger, Tooltip } from "react-bootstrap";
-
-export type Status =
-  | "Not Required"
-  | "Action Needed"
-  | "Complete"
-  | "Awaiting Approval";
-
-interface StatusValues {
-  "Not Required": string;
-  "Action Needed": string;
-  Complete: string;
-  "Awaiting Approval": string;
-}
+import { Badge, OverlayTrigger, Tooltip } from "react-bootstrap";
+import { StepStatus, RoleStatus } from "../datasets/UserData";
 
 interface Props {
-  status?: Status;
+  tooltip?: boolean;
+  status: string | null;
 }
-export default function StatusBadge({ status }: Props) {
-  const tooltips: StatusValues = {
-    "Not Required":
-      "This step is not required for you. If you think this is feel free to complete it anyway.",
+export default function StatusBadge({ status, tooltip = false }: Props) {
+  const tooltips: { [s: string]: string } = {
     "Action Needed":
       "This is a flag to help you keep track. If you completed all actions then click the Action Complete button.",
     Complete:
@@ -28,20 +15,21 @@ export default function StatusBadge({ status }: Props) {
       "This is a flag saying that the risk manager has not confirmed your actions from this step.",
   };
   const renderTooltip = (props: any) =>
-    status ? (
+    status && tooltip && tooltips[status] ? (
       <Tooltip id="button-tooltip" {...props}>
         {tooltips[status]}
       </Tooltip>
     ) : (
-      false
+      <span></span>
     );
-  const colours: StatusValues = {
-    "Not Required": "secondary",
+  const colours: { [s: string]: string } = {
     "Action Needed": "warning",
     Complete: "success",
     "Awaiting Approval": "info",
+    "In-Progress": "info",
   };
-  if (status) {
+
+  if (status && colours[status]) {
     return (
       <OverlayTrigger
         placement="top"
