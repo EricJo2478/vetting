@@ -130,10 +130,10 @@ export default function App() {
         There are many different roles you can fill as a volunteer within our
         chapter. Each role has different vetting requirements to ensure
         safeguarding for participants. You can be vetted for multiple roles at a
-        time. You can view the steps to be vetted for each role seperately. If
-        you wish to use our vetting tracker please log in by pressing the log in
-        button on the top right corner. Once logged in you can select a role to
-        help you track your vetting status.
+        time. <br />
+        You can view the steps to be vetted for each role seperately by
+        selecting it on the left. If you wish to use our vetting tracker please
+        log in by pressing the log in button in the top right corner.
       </p>
       {/* <p>
         Below you will find a section on each step walking you through what is
