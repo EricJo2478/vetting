@@ -1,0 +1,26 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{db}/documents {
+
+    // Public catalogs
+    match /roles/{roleId} {
+      allow read: if true;            // anyone can view roles
+      allow write: if false;          // lock down writes (or admin only if you need)
+    }
+
+    match /steps/{stepId} {
+      allow read: if true;            // anyone can view step definitions
+      allow write: if false;          // lock down writes (or admin only)
+    }
+
+    // User profiles
+    match /users/{uid} {
+      allow read, write: if request.auth != null && request.auth.uid == uid;
+    }
+
+    // Per-user progress
+    match /users/{uid}/progress/{roleId} {
+      allow read, write: if request.auth != null && request.auth.uid == uid;
+    }
+  }
+}

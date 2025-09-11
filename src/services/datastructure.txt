@@ -1,0 +1,45 @@
+users/{uid}
+{
+  "email": "jane@example.com",
+  "name": "Jane Doe",
+  "systemRole": "reviewer",        // controls system permissions
+  "roleIds": ["childcare", "security"],   // vetting roles this user is pursuing
+  "createdAt": "2025-09-10T18:00:00Z"
+}
+
+roles/{roleId}
+{
+  "name": "Childcare Volunteer",
+  "description": "Volunteers who help with childcare",
+  "steps": ["background_check", "training", "interview"]
+}
+
+steps/{stepId}
+{
+  "name": "Background Check",
+  "description": "Complete a criminal background check",
+  "order": 1,
+  "expiresInMonths": 24,           // null or missing if never expires
+  "requiresManualReview": true     // optional flag
+}
+
+users/{uid}/progress/{roleId}
+{
+  "roleId": "childcare",
+  "steps": {
+    "background_check": {
+      "status": "completed",       // "pending" | "in-progress" | "completed" | "expired"
+      "completedAt": "2025-09-10",
+      "expiresAt": "2027-09-10",
+      "lastReviewedAt": "2025-09-10"
+    },
+    "training": {
+      "status": "completed",
+      "completedAt": "2025-01-05",
+      "expiresAt": "2028-01-05"
+    },
+    "interview": {
+      "status": "pending"
+    }
+  }
+}

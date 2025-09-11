@@ -1,11 +1,4 @@
-import { useState, FormEvent } from "react";
-import {
-  signInWithPopup,
-  signInWithEmailAndPassword,
-  createUserWithEmailAndPassword,
-  sendPasswordResetEmail,
-  UserCredential,
-} from "firebase/auth";
+import { useState, FormEvent, useEffect } from "react";
 import {
   Button,
   Card,
@@ -20,7 +13,15 @@ import {
   ExclamationTriangleFill,
   XCircleFill,
 } from "react-bootstrap-icons";
-import { auth, googleProvider } from "../services/firebase";
+import {
+  loginWithEmail,
+  loginWithGooglePopup,
+  resetPassword,
+  signupWithEmail,
+} from "../../services/authService";
+import { useAuth } from "../../hooks/useAuth";
+import { useToast } from "../../hooks/useToast";
+import { useNavigate } from "react-router-dom";
 
 export default function Login() {
   const [loading, setLoading] = useState<boolean>(false); // tracks if the login is in process
@@ -28,38 +29,31 @@ export default function Login() {
   const [password, setPassword] = useState<string>(""); // tracks the password value in form
   const [isRegister, setIsRegister] = useState<boolean>(false);
 
-  const [toastMessage, setToastMessage] = useState<string>(""); // tracks if there is a toast message
-  const [toastVariant, setToastVariant] = useState<
-    "success" | "danger" | "warning"
-  >("success"); // tracks colour variatn of toast message
-  const [showToast, setShowToast] = useState<boolean>(false); // whether toast message is visible
+  const navigate = useNavigate();
+  const { user, loading: authLoading } = useAuth();
+  const {
+    toastMessage,
+    toastVariant,
+    showToast,
+    setShowToast,
+    showNotification,
+  } = useToast();
 
-  // function to show toast notification
-  const showNotification = (
-    message: string,
-    variant: "success" | "danger" | "warning" = "success"
-  ) => {
-    setToastMessage(message); // set message
-    setToastVariant(variant); // set variant (success if not defined)
-    setShowToast(true); // show toast
-  };
+  useEffect(() => {
+    if (!authLoading && user) {
+      navigate("/roles", { replace: true });
+    }
+  }, [authLoading, user, navigate]);
 
   // function to handle google login
   const handleGoogleLogin = async (): Promise<void> => {
     setLoading(true);
     try {
-      const result: UserCredential = await signInWithPopup(
-        auth,
-        googleProvider
-      );
-      // show notification if login sucessful
-      showNotification(
-        `Google login successful: ${result.user.email}`,
-        "success"
-      );
+      const cred = await loginWithGooglePopup();
+      const email = cred.user.email ?? "your account";
+      showNotification(`Google login successful: ${email}`, "success");
     } catch (error) {
-      // show notification for error and log to console
-      console.error("❌ Google login error:", error);
+      console.error("Google login error:", error);
       showNotification("Google login failed", "danger");
     } finally {
       setLoading(false);
@@ -73,17 +67,20 @@ export default function Login() {
     e.preventDefault();
     setLoading(true);
     try {
-      let result: UserCredential;
       if (isRegister) {
-        result = await createUserWithEmailAndPassword(auth, email, password);
-        showNotification(`Account created: ${result.user.email}`, "success");
+        await signupWithEmail(email, password, {
+          systemRole: "volunteer",
+          roleIds: [],
+          createdAt: Date.now(),
+          email,
+        } as any);
+        showNotification(`Account created: ${email}`, "success");
       } else {
-        result = await signInWithEmailAndPassword(auth, email, password);
-        showNotification(`Logged in: ${result.user.email}`, "success");
+        await loginWithEmail(email, password);
+        showNotification(`Logged in: ${email}`, "success");
       }
     } catch (error) {
-      // show notification for error and log to console
-      console.error(`❌ ${isRegister ? "Signup" : "Login"} error:`, error);
+      console.error(`${isRegister ? "Signup" : "Login"} error:`, error);
       showNotification(`${isRegister ? "Signup" : "Login"} failed`, "danger");
     } finally {
       setLoading(false);
@@ -100,7 +97,7 @@ export default function Login() {
     setLoading(true);
     try {
       // show success notification
-      await sendPasswordResetEmail(auth, email);
+      await resetPassword(email);
       showNotification("Password reset email sent!", "success");
     } catch (error) {
       // show error notification and log to console
