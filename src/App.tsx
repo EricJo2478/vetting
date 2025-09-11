@@ -1,18 +1,10 @@
 // Import the functions you need from the SDKs you need
-import { initializeApp } from "firebase/app";
-import {
-  getAuth,
-  GoogleAuthProvider,
-  onAuthStateChanged,
-  signInWithEmailAndPassword,
-  signInWithPopup,
-} from "firebase/auth";
+import { onAuthStateChanged, signInWithPopup } from "firebase/auth";
 import {
   addDoc,
   collection,
   doc,
   getDoc,
-  getFirestore,
   onSnapshot,
   setDoc,
 } from "firebase/firestore";
@@ -32,31 +24,14 @@ import {
   Row,
   Tab,
 } from "react-bootstrap";
-import NavBar from "./components/NavBar";
+import NavBar from "./components/layout/NavBar";
 import Step from "./components/Step";
 import StatusBadge from "./components/StatusBadge";
 import StatusBar from "./components/StatusBar";
 import AccountData, { fetchAccounts, Permission } from "./datasets/AccountData";
 import VettingCard from "./components/VettingCard";
 import AccountCard from "./components/AccountCard";
-// TODO: Add SDKs for Firebase products that you want to use
-// https://firebase.google.com/docs/web/setup#available-libraries
-
-// Your web app's Firebase configuration
-const firebaseConfig = {
-  apiKey: "AIzaSyBZo1hbq7C20pS_OK-ahyiUE96lcjAgWmQ",
-  authDomain: "vetting-caf2f.firebaseapp.com",
-  projectId: "vetting-caf2f",
-  storageBucket: "vetting-caf2f.firebasestorage.app",
-  messagingSenderId: "727627155798",
-  appId: "1:727627155798:web:e89bdc979c27e611c12ef7",
-};
-
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
-export const auth = getAuth(app);
-export const firestore = getFirestore(app);
-export const googleProvider = new GoogleAuthProvider();
+import { auth, firestore, googleProvider } from "./services/firebase";
 
 export interface IdList<T> {
   [id: string]: T;

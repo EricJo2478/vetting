@@ -1,6 +1,7 @@
 import { collection, getDocs } from "firebase/firestore";
-import { firestore, IdList } from "../App";
+import { IdList } from "../App";
 import StepData from "./StepData";
+import { firestore } from "../services/firebase";
 
 export default class RoleData {
   readonly id: string;

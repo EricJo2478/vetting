@@ -1,7 +1,8 @@
 import { ReactNode } from "react";
 import parse from "html-react-parser";
 import { collection, getDocs } from "firebase/firestore";
-import { firestore, IdList } from "../App";
+import { IdList } from "../App";
+import { firestore } from "../services/firebase";
 
 export default class StepData {
   readonly id: string;

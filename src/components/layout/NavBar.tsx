@@ -1,10 +1,9 @@
 import { Button, Container, Modal, Nav, Navbar } from "react-bootstrap";
-import { auth } from "../App";
 import { signOut } from "firebase/auth";
-import UserData from "../datasets/UserData";
-import SignUpForm from "./SignupForm";
-import Login from "./Login";
+import UserData from "../../datasets/UserData";
+import Login from "../Login";
 import { useState } from "react";
+import { auth } from "../../services/firebase";
 
 interface Props {
   setPage: Function;

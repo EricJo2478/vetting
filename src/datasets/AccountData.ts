@@ -6,9 +6,10 @@ import {
   getDocs,
   updateDoc,
 } from "firebase/firestore";
-import { firestore, IdList } from "../App";
+import { IdList } from "../App";
 import { RoleStatus, StepStatus } from "./UserData";
 import RoleData from "./RoleData";
+import { firestore } from "../services/firebase";
 
 export type Permission = "volunteer" | "manager" | "coordinator";
 

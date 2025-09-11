@@ -20,7 +20,7 @@ import {
   ExclamationTriangleFill,
   XCircleFill,
 } from "react-bootstrap-icons";
-import { auth, googleProvider } from "../App";
+import { auth, googleProvider } from "../services/firebase";
 
 export default function Login() {
   const [loading, setLoading] = useState<boolean>(false); // tracks if the login is in process

@@ -1,7 +1,8 @@
 import { User } from "firebase/auth";
 import { doc, DocumentReference, getDoc, updateDoc } from "firebase/firestore";
-import { firestore, IdList } from "../App";
+import { IdList } from "../App";
 import { Permission } from "./AccountData";
+import { firestore } from "../services/firebase";
 
 export type RoleStatus = "Complete" | "In-Progress";
 export type StepStatus = "Action Needed" | "Complete" | "Awaiting Approval";
