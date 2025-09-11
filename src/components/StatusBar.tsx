@@ -1,6 +1,7 @@
 import { ProgressBar } from "react-bootstrap";
 import { StepStatus } from "../datasets/UserData";
 import StepData from "../datasets/StepData";
+import { ReactNode } from "react";
 
 interface Props {
   stepStatus: { [id: string]: StepStatus | null };
@@ -24,8 +25,8 @@ export default function StatusBar({ stepStatus, steps }: Props) {
 
   return (
     <ProgressBar className="mb-3">
-      <ProgressBar striped variant="info" now={waiting} key={1} />
       <ProgressBar striped variant="success" now={completed} key={2} />
+      <ProgressBar striped variant="info" now={waiting} key={1} />
     </ProgressBar>
   );
 }

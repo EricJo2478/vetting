@@ -1,5 +1,5 @@
 import { signInWithEmailAndPassword, UserCredential } from "firebase/auth";
-import { useState } from "react";
+import { SyntheticEvent, useState } from "react";
 import { Alert, Button, Form, Modal, Spinner } from "react-bootstrap";
 import { auth } from "../App";
 

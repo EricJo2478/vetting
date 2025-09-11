@@ -1,10 +1,18 @@
-import { Badge, OverlayTrigger, Tooltip } from "react-bootstrap";
+import { JSX, ReactElement } from "react";
+import { Badge, OverlayTrigger, Popover, Tooltip } from "react-bootstrap";
 
 interface Props {
   tooltip?: boolean;
   status: string | null;
+  popover?: JSX.Element;
+  placement?: "top" | "bottom" | "left" | "right";
 }
-export default function StatusBadge({ status, tooltip = false }: Props) {
+export default function StatusBadge({
+  popover,
+  status,
+  tooltip = false,
+  placement = "top",
+}: Props) {
   const tooltips: { [s: string]: string } = {
     "Action Needed":
       "This is a flag to help you keep track. If you completed all actions then click the Action Complete button.",
@@ -31,9 +39,9 @@ export default function StatusBadge({ status, tooltip = false }: Props) {
   if (status && colours[status]) {
     return (
       <OverlayTrigger
-        placement="top"
+        placement={placement}
         delay={{ show: 250, hide: 400 }}
-        overlay={renderTooltip}
+        overlay={popover ? popover : renderTooltip}
       >
         <Badge className="ms-1" bg={colours[status]}>
           {status}

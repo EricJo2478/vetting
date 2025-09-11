@@ -23,6 +23,10 @@ export default class StepData {
     this.button = button;
     this.modal = modal ? parse(modal) : undefined;
   }
+
+  compare(other: StepData) {
+    return this.name.localeCompare(other.name);
+  }
 }
 
 export async function fetchSteps() {
@@ -38,5 +42,8 @@ export async function fetchSteps() {
       docData.modal
     );
   }
-  return dataSet;
+  const entries = Object.entries(dataSet);
+  entries.sort((a, b) => a[1].compare(b[1]));
+  const sortedData = Object.fromEntries(entries);
+  return sortedData;
 }
