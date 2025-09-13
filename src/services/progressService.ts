@@ -1,5 +1,5 @@
 // src/services/progressService.ts
-import { doc, getDoc, setDoc, updateDoc } from "firebase/firestore";
+import { doc, getDoc, setDoc, updateDoc, writeBatch } from "firebase/firestore";
 import { db } from "./firebase";
 import { ProgressDoc, StepProgress } from "../types/Progress";
 
@@ -15,8 +15,36 @@ export async function updateStepProgress(
   stepId: string,
   progress: StepProgress
 ) {
-  const ref = doc(db, "users", uid, "progress", roleId);
-  await updateDoc(ref, { [`steps.${stepId}`]: progress });
+  const progressRef = doc(db, "users", uid, "progress", roleId);
+  const entryRef = doc(db, "users", uid, "progress", roleId, "entries", stepId);
+
+  const batch = writeBatch(db);
+
+  // Keep your existing map-based progress (aggregate view)
+  // If the parent doc might not exist yet, swap to setDoc(..., { merge: true }) instead of updateDoc.
+  batch.update(progressRef, { [`steps.${stepId}`]: progress });
+
+  // NEW: write a per-step entry when the volunteer completes a step.
+  // This powers the collectionGroup("entries") review queue.
+  if (progress.status === "completed") {
+    batch.set(
+      entryRef,
+      {
+        userId: uid,
+        roleId,
+        stepId,
+        status: "submitted", // review workflow status
+        submittedAt: Date.now(),
+        // optional denormalized fields you can fill if handy:
+        // userEmail, roleName, stepName
+      },
+      { merge: false } // create-only is safest with your manager-only update rules
+    );
+  }
+  // NOTE: we intentionally do NOT delete or modify the entry if the step is reset.
+  // With manager-only updates/deletes, managers should 'reopen' or clean up entries.
+
+  await batch.commit();
 }
 
 /** Helper: compute counts from a raw progress doc and the role's step list */

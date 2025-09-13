@@ -1,0 +1,60 @@
+// firestore.rules — supervisors can VIEW entries; ONLY managers can approve/edit.
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{db}/documents {
+
+    function userRole(uid) {
+      return get(/databases/$(db)/documents/users/$(uid)).data.systemRole;
+    }
+    function isAuthed() { return request.auth != null; }
+    function isManager() {
+      return isAuthed() && userRole(request.auth.uid) == 'manager';
+    }
+    function isSupervisor() {
+      return isAuthed() && userRole(request.auth.uid) == 'supervisor';
+    }
+    function isVolunteer() {
+      return isAuthed() && userRole(request.auth.uid) == 'volunteer';
+    }
+
+    // Catalog
+    match /roles/{roleId} {
+      allow read: if true;
+      allow write: if isManager();
+    }
+    match /steps/{stepId} {
+      allow read: if true;
+      allow write: if isManager();
+    }
+
+    // User-scoped docs
+    match /users/{uid} {
+      // Owner may read/write their own profile doc
+      allow read, write: if isAuthed() && request.auth.uid == uid;
+
+      // Role-level summary (owner-owned)
+      match /progress/{roleId} {
+        allow read, write: if isAuthed() && request.auth.uid == uid;
+
+        // Step-level entries (queried by collectionGroup "entries")
+        match /entries/{stepId} {
+          function isOwner() { return isAuthed() && request.auth.uid == uid; }
+          function canView() { return isOwner() || isSupervisor() || isManager(); }
+          function canEdit() { return isManager(); }
+
+          // Anyone with rights can read (owner, supervisor, manager)
+          allow read: if canView();
+
+          // Volunteers (owners) create/submit their own; Managers can also create (e.g., backfill)
+          allow create: if isOwner() || isManager();
+
+          // Only managers can update/approve/edit entries. Owners cannot directly set approved statuses.
+          allow update: if canEdit();
+
+          // Deletion: managers only (generally avoid deletes)
+          allow delete: if isManager();
+        }
+      }
+    }
+  }
+}

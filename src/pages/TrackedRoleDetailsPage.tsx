@@ -18,7 +18,7 @@ import { useToast } from "../hooks/useToast";
 import { getRole } from "../services/roleService";
 import { getStepsByIds } from "../services/stepService";
 import { getProgress, updateStepProgress } from "../services/progressService";
-import { RoleDoc } from "./DashboardPage";
+import { RoleDoc } from "../types/Role";
 import { StepDoc } from "../types/Step";
 import { StepProgress } from "../types/Progress";
 import Markdown from "../components/common/MarkDown";
@@ -128,7 +128,7 @@ export default function TrackedRoleDetailsPage() {
   return (
     <div className="container py-4">
       <Breadcrumb className="mb-3">
-        <Breadcrumb.Item as={Link} to="/roles">
+        <Breadcrumb.Item linkAs={Link} linkProps={{ to: "/roles" }}>
           Roles
         </Breadcrumb.Item>
         <Breadcrumb.Item active>{role.name}</Breadcrumb.Item>

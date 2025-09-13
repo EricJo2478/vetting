@@ -8,6 +8,7 @@ import { AuthGuard } from "./contexts/AuthGuard";
 import RolesCatalog from "./pages/RolesCatalog";
 import RoleDetailsPage from "./pages/RoleDetailsPage";
 import TrackedRoleDetailsPage from "./pages/TrackedRoleDetailsPage";
+import ReviewPage from "./pages/ReviewPage";
 
 // Tiny layout wrapper
 function PageLayout({ children }: { children: React.ReactNode }) {
@@ -39,16 +40,56 @@ export default function App() {
         />
 
         {/* Default: redirect root based on auth (simple version) */}
-        <Route path="/" element={<Navigate to="/roles" replace />} />
-        <Route path="*" element={<Navigate to="/" replace />} />
-        <Route path="/catalog" element={<RolesCatalog />} />
-        <Route path="/catalog/:roleId" element={<RoleDetailsPage />} />
+        <Route
+          path="/"
+          element={
+            <PageLayout>
+              <Navigate to="/roles" replace />
+            </PageLayout>
+          }
+        />
+        <Route
+          path="*"
+          element={
+            <PageLayout>
+              <Navigate to="/" replace />
+            </PageLayout>
+          }
+        />
+        <Route
+          path="/catalog"
+          element={
+            <PageLayout>
+              <RolesCatalog />
+            </PageLayout>
+          }
+        />
+        <Route
+          path="/catalog/:roleId"
+          element={
+            <PageLayout>
+              <RoleDetailsPage />
+            </PageLayout>
+          }
+        />
         <Route
           path="/roles/:roleId"
           element={
             <AuthGuard>
-              <TrackedRoleDetailsPage />
+              <PageLayout>
+                <TrackedRoleDetailsPage />
+              </PageLayout>
             </AuthGuard>
+          }
+        />
+        <Route
+          path="/review"
+          element={
+            <PageLayout>
+              <AuthGuard>
+                <ReviewPage />
+              </AuthGuard>
+            </PageLayout>
           }
         />
       </Routes>

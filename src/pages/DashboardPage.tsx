@@ -15,20 +15,9 @@ import { useAuth } from "../hooks/useAuth";
 import { useToast } from "../hooks/useToast";
 import { getRoles } from "../services/roleService";
 import { updateUser } from "../services/userService";
-import { Link } from "react-router-dom";
 import { LinkContainer } from "react-router-bootstrap";
-import {
-  getProgress,
-  getProgressCountsForRoles,
-} from "../services/progressService";
-
-// Types — keep in sync with src/types/Role.ts and src/types/User.ts
-export interface RoleDoc {
-  id: string;
-  name: string;
-  description?: string;
-  steps: string[]; // step IDs
-}
+import { getProgressCountsForRoles } from "../services/progressService";
+import { RoleDoc } from "../types/Role";
 
 export default function RolesDashboard() {
   const { user, profile, loading: authLoading } = useAuth();
@@ -110,8 +99,13 @@ export default function RolesDashboard() {
     if (!user) return;
     setSaving(true);
     try {
-      await updateUser(user.uid, { roleIds: Array.from(selected) });
+      const roleIds = Array.from(selected);
+      await updateUser(user.uid, { roleIds });
       showNotification("Roles updated", "success");
+
+      // refresh counts with the newly saved selection
+      const counts = await getProgressCountsForRoles(user.uid, roleIds, roles);
+      setProgressByRole(counts);
     } catch (e) {
       console.error("Failed to save roles", e);
       showNotification("Could not save roles", "danger");
@@ -187,7 +181,11 @@ export default function RolesDashboard() {
                           </span>
                           <span>{percent}%</span>
                         </div>
-                        <ProgressBar now={percent} className="mt-1" />
+                        <ProgressBar
+                          now={percent}
+                          variant={percent === 100 ? "success" : "info"}
+                          className="mt-1"
+                        />
                       </div>
                     )}
 

@@ -40,6 +40,11 @@ export default function NavBar() {
                 <Nav.Link>Roles</Nav.Link>
               </LinkContainer>
             )}
+            {user && (
+              <LinkContainer to="/review">
+                <Nav.Link>Review</Nav.Link>
+              </LinkContainer>
+            )}
           </Nav>
 
           {/* Right side auth actions */}
