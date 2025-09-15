@@ -18,6 +18,7 @@ import { updateUser } from "../services/userService";
 import { LinkContainer } from "react-router-bootstrap";
 import { getProgressCountsForRoles } from "../services/progressService";
 import { RoleDoc } from "../types/Role";
+import { usePermissions } from "../hooks/usePermissions";
 
 export default function RolesDashboard() {
   const { user, profile, loading: authLoading } = useAuth();
@@ -31,6 +32,8 @@ export default function RolesDashboard() {
     Record<string, { completed: number; total: number; percent: number }>
   >({});
 
+  const { isManager } = usePermissions();
+
   // Initialize local selection from user profile
   useEffect(() => {
     if (profile?.roleIds) {
@@ -42,7 +45,7 @@ export default function RolesDashboard() {
   useEffect(() => {
     (async () => {
       try {
-        const data = await getRoles();
+        const data = await getRoles(!isManager);
         setRoles(data);
       } catch (e) {
         console.error("Failed to fetch roles", e);
@@ -58,7 +61,7 @@ export default function RolesDashboard() {
   useEffect(() => {
     (async () => {
       try {
-        const data = await getRoles();
+        const data = await getRoles(!isManager);
         setRoles(data);
 
         if (user && profile?.roleIds) {
@@ -168,8 +171,8 @@ export default function RolesDashboard() {
 
                   <div className="mt-2">
                     <small className="text-muted">
-                      Requires {role.steps.length} step
-                      {role.steps.length === 1 ? "" : "s"}
+                      Requires {role.steps ? role.steps.length : 0} step
+                      {role.steps ? (role.steps.length === 1 ? "" : "s") : "s"}
                     </small>
 
                     {checked && (
@@ -202,6 +205,13 @@ export default function RolesDashboard() {
                       </LinkContainer>
                     )}
                   </div>
+                  {isManager && (
+                    <LinkContainer to={`/admin/roles/${role.id}/edit`}>
+                      <Button size="sm" variant="outline-primary">
+                        Edit role
+                      </Button>
+                    </LinkContainer>
+                  )}
                 </Card.Body>
               </Card>
             </Col>

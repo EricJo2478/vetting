@@ -12,7 +12,6 @@ import {
   Col,
   ProgressBar,
 } from "react-bootstrap";
-import { CheckCircleFill } from "react-bootstrap-icons";
 import { useAuth } from "../hooks/useAuth";
 import { useToast } from "../hooks/useToast";
 import { getRole } from "../services/roleService";
@@ -21,7 +20,7 @@ import { getProgress, updateStepProgress } from "../services/progressService";
 import { RoleDoc } from "../types/Role";
 import { StepDoc } from "../types/Step";
 import { StepProgress } from "../types/Progress";
-import Markdown from "../components/common/MarkDown";
+import Markdown from "../components/common/Markdown";
 
 const addMonths = (d: Date, m: number) => {
   const x = new Date(d);
@@ -52,7 +51,7 @@ export default function TrackedRoleDetailsPage() {
         }
 
         const prog = await getProgress(user.uid, roleId);
-        setProgress(prog || {});
+        setProgress(prog?.steps ?? {});
       } catch (e) {
         console.error(e);
         showNotification("Failed to load tracked role", "danger");
@@ -65,6 +64,11 @@ export default function TrackedRoleDetailsPage() {
   const handleToggleStep = async (stepId: string) => {
     if (!user || !roleId) return;
     setSavingStep(stepId);
+    const step = steps.find((s) => s.id === stepId); // steps should be StepDoc[]
+    if (!step) {
+      console.error("Unknown stepId", stepId);
+      return;
+    }
     try {
       const prev = progress[stepId];
       const wasCompleted = prev?.status === "completed";
@@ -87,7 +91,7 @@ export default function TrackedRoleDetailsPage() {
         expiresAt: expiresAt ? expiresAt.toISOString().slice(0, 10) : undefined,
       };
 
-      await updateStepProgress(user.uid, roleId, stepId, update);
+      await updateStepProgress(user.uid, roleId, step, update);
       setProgress((prevProg) => ({ ...prevProg, [stepId]: update }));
       showNotification(
         `Step ${
@@ -115,7 +119,7 @@ export default function TrackedRoleDetailsPage() {
     return (
       <div className="container py-4">
         <Breadcrumb className="mb-3">
-          <Breadcrumb.Item as={Link} to="/roles">
+          <Breadcrumb.Item linkAs={Link} linkProps={{ to: "/roles" }}>
             Roles
           </Breadcrumb.Item>
           <Breadcrumb.Item active>Not Found</Breadcrumb.Item>

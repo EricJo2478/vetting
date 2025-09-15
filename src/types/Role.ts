@@ -4,4 +4,5 @@ export interface RoleDoc {
   name: string;
   description?: string;
   steps: string[]; // step IDs
+  isPublished: boolean;
 }

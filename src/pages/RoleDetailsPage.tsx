@@ -11,7 +11,7 @@ import {
   Row,
   Col,
 } from "react-bootstrap";
-import Markdown from "../components/common/MarkDown";
+import Markdown from "../components/common/Markdown";
 import { CheckCircleFill } from "react-bootstrap-icons";
 import { useAuth } from "../hooks/useAuth";
 import { useToast } from "../hooks/useToast";
@@ -21,6 +21,7 @@ import { updateUser } from "../services/userService";
 import { StepDoc } from "../types/Step";
 import { LinkContainer } from "react-router-bootstrap";
 import { RoleDoc } from "../types/Role";
+import { usePermissions } from "../hooks/usePermissions";
 
 export default function RoleDetailsPage() {
   const { roleId } = useParams<{ roleId: string }>();
@@ -32,6 +33,8 @@ export default function RoleDetailsPage() {
   const [steps, setSteps] = useState<StepDoc[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+
+  const { isManager } = usePermissions();
 
   const isTracking = useMemo(() => {
     return !!profile?.roleIds?.includes(roleId || "");
@@ -98,7 +101,7 @@ export default function RoleDetailsPage() {
     return (
       <div className="container py-4">
         <Breadcrumb className="mb-3">
-          <Breadcrumb.Item as={Link} to="/catalog">
+          <Breadcrumb.Item linkAs={Link} linkProps={{ to: "/catalog" }}>
             Roles
           </Breadcrumb.Item>
           <Breadcrumb.Item active>Not Found</Breadcrumb.Item>
@@ -114,11 +117,11 @@ export default function RoleDetailsPage() {
     <div className="container py-4">
       <Breadcrumb className="mb-3">
         {user ? (
-          <Breadcrumb.Item as={Link} to="/roles">
+          <Breadcrumb.Item linkAs={Link} linkProps={{ to: "/roles" }}>
             Roles
           </Breadcrumb.Item>
         ) : (
-          <Breadcrumb.Item as={Link} to="/catalog">
+          <Breadcrumb.Item linkAs={Link} linkProps={{ to: "/catalog" }}>
             Roles
           </Breadcrumb.Item>
         )}

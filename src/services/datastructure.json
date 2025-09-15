@@ -43,3 +43,8 @@
     }
   }
 }
+
+// /users/{uid}/credentials/{credentialId}
+{
+  
+}

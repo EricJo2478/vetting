@@ -27,6 +27,40 @@ service cloud.firestore {
       allow write: if isManager();
     }
 
+    // Admin
+    match /roles/{roleId} { allow read: if true; allow write: if isManager(); }
+    match /steps/{stepId} { allow read: if true; allow write: if isManager(); }
+
+    // Shared credentials
+    match /users/{uid}/credentials/{credId} {
+      function isOwner() { return request.auth != null && request.auth.uid == uid; }
+      function isManager() {
+        return request.auth != null &&
+          get(/databases/$(db)/documents/users/$(request.auth.uid)).data.systemRole == "manager";
+      }
+      function isSupervisor() {
+        return request.auth != null &&
+          get(/databases/$(db)/documents/users/$(request.auth.uid)).data.systemRole == "supervisor";
+      }
+
+      // Read: owner, supervisor, manager
+      allow read: if isOwner() || isSupervisor() || isManager();
+
+      // Create: owner (submit) or manager (backfill)
+      allow create: if isOwner() || isManager();
+
+      // Update:
+      // - owners can change only non-authoritative fields and must NOT set status to 'verified'
+      // - managers can verify/reject/edit expiry, etc.
+      allow update: if
+        (isOwner() && request.resource.data.status != "verified")
+        || isManager();
+
+      // Delete: managers only
+      allow delete: if isManager();
+    }
+
+
     // User-scoped docs
     match /users/{uid} {
       // Owner may read/write their own profile doc

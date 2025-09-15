@@ -1,8 +1,15 @@
 // src/services/progressService.ts
-import { doc, getDoc, writeBatch } from "firebase/firestore";
+import { doc, getDoc, setDoc, writeBatch } from "firebase/firestore";
 import { db } from "./firebase";
 import { ProgressDoc, StepProgress } from "../types/Progress";
 import { RoleDoc } from "../types/Role";
+import { StepDoc } from "../types/Step";
+
+function isValid(cred: any) {
+  const ok = cred?.status === "verified";
+  const notExpired = !cred?.expiresAt || cred.expiresAt > Date.now();
+  return ok && notExpired;
+}
 
 export async function getProgress(
   userId: string,
@@ -16,39 +23,85 @@ export async function getProgress(
 export async function updateStepProgress(
   uid: string,
   roleId: string,
-  stepId: string,
+  step: StepDoc,
   progress: StepProgress
 ) {
   const progressRef = doc(db, "users", uid, "progress", roleId);
-  const entryRef = doc(db, "users", uid, "progress", roleId, "entries", stepId);
+  const entryRef = doc(
+    db,
+    "users",
+    uid,
+    "progress",
+    roleId,
+    "entries",
+    step.id
+  );
 
-  const batch = writeBatch(db);
+  // If the step is shareable, look up (or create) the credential
+  if (step.shareable && step.templateId) {
+    const credId = step.templateId; // or compose scope here if needed
+    const credRef = doc(db, "users", uid, "credentials", credId);
+    const credSnap = await getDoc(credRef);
+    const credential = credSnap.data();
+    const alreadyValid = isValid(credential);
 
-  // Keep existing map-based progress (aggregate view)
-  // If the parent doc might not exist yet, swap to setDoc(..., { merge: true }) instead of updateDoc.
-  batch.update(progressRef, { [`steps.${stepId}`]: progress });
+    const entryStatus = alreadyValid
+      ? step.autoApproveIfVerified
+        ? "approved"
+        : "submitted"
+      : "submitted";
 
-  // NEW: write a per-step entry when the volunteer completes a step.
-  // This powers the collectionGroup("entries") review queue.
-  if (progress.status === "completed") {
+    const batch = writeBatch(db);
+
+    // Ensure the parent progress doc exists and write the per-role entry
+    batch.set(progressRef, { steps: { [step.id]: progress } }, { merge: true });
+
     batch.set(
       entryRef,
       {
         userId: uid,
         roleId,
-        stepId,
-        status: "submitted", // review workflow status
+        stepId: step.id,
+        templateId: step.templateId,
+        status: entryStatus,
         submittedAt: Date.now(),
-        // optional denormalized fields you can fill if handy:
-        // userEmail, roleName, stepName
+        satisfiedByCredential: alreadyValid,
       },
-      { merge: false } // create-only is safest with your manager-only update rules
+      { merge: true }
     );
-  }
-  // NOTE: we intentionally do NOT delete or modify the entry if the step is reset.
-  // With manager-only updates/deletes, managers should 'reopen' or clean up entries.
 
-  await batch.commit();
+    // If there is no credential, create a submitted one (manager will verify)
+    if (!credSnap.exists()) {
+      batch.set(credRef, {
+        id: credId,
+        templateId: step.templateId,
+        status: "submitted",
+        updatedAt: Date.now(),
+        sourceRoleIds: [roleId],
+      });
+    }
+
+    await batch.commit();
+    return;
+  }
+
+  // Non-shareable: keep your existing per-role behavior
+  await setDoc(
+    progressRef,
+    { steps: { [step.id]: progress } },
+    { merge: true }
+  );
+  await setDoc(
+    entryRef,
+    {
+      userId: uid,
+      roleId,
+      stepId: step.id,
+      status: progress.status === "completed" ? "submitted" : "submitted",
+      submittedAt: Date.now(),
+    },
+    { merge: true }
+  );
 }
 
 /** Helper: compute counts from a raw progress doc and the role's step list */
@@ -92,7 +145,8 @@ export async function getProgressCountsForRoles(
 > {
   // Build a quick lookup for total steps per role
   const totalsByRole: Record<string, number> = {};
-  for (const r of roles) totalsByRole[r.id] = r.steps.length;
+
+  for (const r of roles) totalsByRole[r.id] = r.steps ? r.steps.length : 0;
 
   // Fire reads in parallel (1 per roleId)
   const results = await Promise.all(

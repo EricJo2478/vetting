@@ -1,5 +1,5 @@
 // ---- SYSTEM PERMISSIONS ----
-export type SystemRole = "admin" | "reviewer" | "volunteer";
+export type SystemRole = "manager" | "supervisor" | "volunteer";
 
 // ---- USER ----
 export interface UserDoc {

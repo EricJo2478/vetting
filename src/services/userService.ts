@@ -2,7 +2,7 @@
 import { doc, getDoc, setDoc, updateDoc, deleteDoc } from "firebase/firestore";
 import { db } from "./firebase";
 import { UserDoc } from "../types/User";
-import { User, UserCredential } from "firebase/auth";
+import { User } from "firebase/auth";
 
 export async function createUser(user: UserDoc): Promise<void> {
   await setDoc(doc(db, "users", user.id), user);

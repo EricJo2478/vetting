@@ -1,15 +1,17 @@
 import { Button, Container, Nav, Navbar } from "react-bootstrap";
 import { useAuth } from "../../hooks/useAuth";
-import { Link } from "react-router-dom";
+import { useLocation } from "react-router-dom";
 import { LinkContainer } from "react-router-bootstrap";
+import { usePermissions } from "../../hooks/usePermissions";
 
 export default function NavBar() {
   const { user, logout } = useAuth();
+  const { canReview, isManager } = usePermissions();
 
   // Determine if roles link should be active (catalog or roles pages)
+  const { pathname } = useLocation();
   const isRolesActive =
-    location.pathname.startsWith("/catalog") ||
-    location.pathname.startsWith("/roles");
+    pathname.startsWith("/catalog") || pathname.startsWith("/roles");
 
   return (
     <Navbar expand="lg" className="shadow-sm mb-4">
@@ -40,9 +42,14 @@ export default function NavBar() {
                 <Nav.Link>Roles</Nav.Link>
               </LinkContainer>
             )}
-            {user && (
+            {canReview && (
               <LinkContainer to="/review">
                 <Nav.Link>Review</Nav.Link>
+              </LinkContainer>
+            )}
+            {isManager && (
+              <LinkContainer to="/admin/roles/new">
+                <Nav.Link>New Role</Nav.Link>
               </LinkContainer>
             )}
           </Nav>

@@ -10,6 +10,7 @@ import RoleDetailsPage from "./pages/RoleDetailsPage";
 import TrackedRoleDetailsPage from "./pages/TrackedRoleDetailsPage";
 import ReviewPage from "./pages/ReviewPage";
 import { approveEntry } from "./services/approvalService";
+import RoleEditor from "./pages/admin/RoleEditor";
 
 // Tiny layout wrapper
 function PageLayout({ children }: { children: React.ReactNode }) {
@@ -35,6 +36,26 @@ export default function App() {
             <AuthGuard>
               <PageLayout>
                 <RolesDashboard />
+              </PageLayout>
+            </AuthGuard>
+          }
+        />
+        <Route
+          path="/admin/roles/new"
+          element={
+            <AuthGuard requireManager>
+              <PageLayout>
+                <RoleEditor />
+              </PageLayout>
+            </AuthGuard>
+          }
+        />
+        <Route
+          path="/admin/roles/:roleId/edit"
+          element={
+            <AuthGuard requireManager>
+              <PageLayout>
+                <RoleEditor />
               </PageLayout>
             </AuthGuard>
           }
