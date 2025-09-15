@@ -4,8 +4,10 @@ import {
   setDoc,
   updateDoc,
   getDoc,
+  DocumentReference,
 } from "firebase/firestore";
 import { db } from "./firebase";
+import { useAuth } from "../hooks/useAuth";
 
 /**
  * We assume you mirror step-level progress here:
@@ -30,21 +32,24 @@ export interface EntryData extends EntryKey {
   userEmail?: string;
 }
 
-function entryRef(k: EntryKey) {
+function entryRef(k: EntryKey): DocumentReference {
   return doc(db, "users", k.userId, "progress", k.roleId, "entries", k.stepId);
 }
 
 export async function approveEntry(entry: EntryData) {
+  const { user } = useAuth();
   const ref = entryRef(entry);
   const now = Date.now();
   await updateDoc(ref, {
     status: "approved",
     approvedAt: now,
-    approverId: (await import("firebase/auth")).getAuth().currentUser?.uid ?? null,
+    approverId: user?.uid ?? null,
   });
 }
 
-export async function requestChangesForEntry(entry: EntryData & { notes?: string }) {
+export async function requestChangesForEntry(
+  entry: EntryData & { notes?: string }
+) {
   const ref = entryRef(entry);
   await updateDoc(ref, {
     status: "changes_requested",

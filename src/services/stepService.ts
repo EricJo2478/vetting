@@ -13,14 +13,13 @@ export async function getStep(stepId: string): Promise<StepDoc | null> {
   return snap.exists() ? ({ id: snap.id, ...snap.data() } as StepDoc) : null;
 }
 
-export async function getStepsByIds(ids: string[]) {
+export async function getStepsByIds(ids: string[]): Promise<StepDoc[]> {
   if (!ids.length) return [];
-  // If you store many steps, you might prefer batched getDoc calls for exact IDs.
-  // Here’s one approach using parallel getDoc:
+
   const snaps = await Promise.all(
     ids.map((id) => getDoc(doc(db, "steps", id)))
   );
   return snaps
     .filter((s) => s.exists())
-    .map((s) => ({ id: s.id, ...s.data() } as any));
+    .map((s) => ({ id: s.id, ...s.data() } as StepDoc));
 }

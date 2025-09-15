@@ -23,6 +23,12 @@ import { StepDoc } from "../types/Step";
 import { StepProgress } from "../types/Progress";
 import Markdown from "../components/common/MarkDown";
 
+const addMonths = (d: Date, m: number) => {
+  const x = new Date(d);
+  x.setMonth(x.getMonth() + m);
+  return x;
+};
+
 export default function TrackedRoleDetailsPage() {
   const { roleId } = useParams<{ roleId: string }>();
   const { user } = useAuth();
@@ -61,31 +67,34 @@ export default function TrackedRoleDetailsPage() {
     setSavingStep(stepId);
     try {
       const prev = progress[stepId];
-      const newStatus = prev?.status;
+      const wasCompleted = prev?.status === "completed";
+      const newStatus: "pending" | "completed" = wasCompleted
+        ? "pending"
+        : "completed";
+
+      const stepMeta = steps.find((s) => s.id === stepId);
+      const completedAt = newStatus === "completed" ? new Date() : undefined;
+      const expiresAt =
+        newStatus === "completed" && stepMeta?.expiresInMonths
+          ? addMonths(new Date(), stepMeta.expiresInMonths)
+          : undefined;
+
       const update: StepProgress = {
         status: newStatus,
-        completedAt: newStatus
-          ? new Date().toISOString().slice(0, 10)
+        completedAt: completedAt
+          ? completedAt.toISOString().slice(0, 10)
           : undefined,
-        expiresAt:
-          newStatus && steps.find((s) => s.id === stepId)?.expiresInMonths
-            ? new Date(
-                Date.now() +
-                  steps.find((s) => s.id === stepId)!.expiresInMonths! *
-                    30 *
-                    24 *
-                    60 *
-                    60 *
-                    1000
-              )
-                .toISOString()
-                .slice(0, 10)
-            : undefined,
+        expiresAt: expiresAt ? expiresAt.toISOString().slice(0, 10) : undefined,
       };
 
       await updateStepProgress(user.uid, roleId, stepId, update);
       setProgress((prevProg) => ({ ...prevProg, [stepId]: update }));
-      showNotification(`Step ${newStatus ? "completed" : "reset"}`, "success");
+      showNotification(
+        `Step ${
+          newStatus === "completed" ? "marked complete" : "set to pending"
+        }`,
+        "success"
+      );
     } catch (e) {
       console.error("Failed to update step", e);
       showNotification("Could not update step", "danger");

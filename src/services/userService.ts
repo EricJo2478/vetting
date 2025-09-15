@@ -2,7 +2,7 @@
 import { doc, getDoc, setDoc, updateDoc, deleteDoc } from "firebase/firestore";
 import { db } from "./firebase";
 import { UserDoc } from "../types/User";
-import { UserCredential } from "firebase/auth";
+import { User, UserCredential } from "firebase/auth";
 
 export async function createUser(user: UserDoc): Promise<void> {
   await setDoc(doc(db, "users", user.id), user);
@@ -25,11 +25,10 @@ export async function deleteUser(uid: string): Promise<void> {
 }
 
 // Create profile only if it doesn't exist yet
-export async function ensureUserProfile(cred: UserCredential): Promise<void> {
-  const u = cred.user;
+export async function ensureUserProfile(u: User): Promise<UserDoc> {
   const ref = doc(db, "users", u.uid);
   const snap = await getDoc(ref);
-  if (snap.exists()) return;
+  if (snap.exists()) return snap.data() as UserDoc;
 
   const profile: UserDoc = {
     id: u.uid,
@@ -41,4 +40,5 @@ export async function ensureUserProfile(cred: UserCredential): Promise<void> {
   };
 
   await setDoc(ref, profile, { merge: true });
+  return profile;
 }

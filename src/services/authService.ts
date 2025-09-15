@@ -33,19 +33,22 @@ export async function signupWithEmail(
 }
 
 // Log in
-export async function loginWithEmail(email: string, password: string) {
+export async function loginWithEmail(
+  email: string,
+  password: string
+): Promise<UserCredential> {
   return await signInWithEmailAndPassword(auth, email, password);
 }
 
 // Password Reset
-export async function resetPassword(email: string) {
+export async function resetPassword(email: string): Promise<void> {
   return sendPasswordResetEmail(auth, email);
 }
 
 // Popup flow (preferred on desktop)
 export async function loginWithGooglePopup(): Promise<UserCredential> {
   const cred = await signInWithPopup(auth, googleProvider);
-  await ensureUserProfile(cred);
+  await ensureUserProfile(cred.user);
   return cred;
 }
 
@@ -59,11 +62,11 @@ export async function loginWithGoogleRedirect(): Promise<void> {
 export async function handleRedirectResult(): Promise<UserCredential | null> {
   const { getRedirectResult } = await import("firebase/auth");
   const cred = await getRedirectResult(auth);
-  if (cred) await ensureUserProfile(cred);
+  if (cred) await ensureUserProfile(cred.user);
   return cred;
 }
 
 // Log out
-export async function logout() {
+export async function logout(): Promise<void> {
   return await signOut(auth);
 }

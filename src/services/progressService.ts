@@ -1,12 +1,16 @@
 // src/services/progressService.ts
-import { doc, getDoc, setDoc, updateDoc, writeBatch } from "firebase/firestore";
+import { doc, getDoc, writeBatch } from "firebase/firestore";
 import { db } from "./firebase";
 import { ProgressDoc, StepProgress } from "../types/Progress";
+import { RoleDoc } from "../types/Role";
 
-export async function getProgress(userId: string, roleId: string) {
+export async function getProgress(
+  userId: string,
+  roleId: string
+): Promise<ProgressDoc | null> {
   const ref = doc(db, "users", userId, "progress", roleId);
   const snap = await getDoc(ref);
-  return snap.exists() ? snap.data() : null;
+  return snap.exists() ? (snap.data() as ProgressDoc) : null;
 }
 
 export async function updateStepProgress(
@@ -20,7 +24,7 @@ export async function updateStepProgress(
 
   const batch = writeBatch(db);
 
-  // Keep your existing map-based progress (aggregate view)
+  // Keep existing map-based progress (aggregate view)
   // If the parent doc might not exist yet, swap to setDoc(..., { merge: true }) instead of updateDoc.
   batch.update(progressRef, { [`steps.${stepId}`]: progress });
 
@@ -76,13 +80,13 @@ export async function getProgressCounts(
 
 /**
  * New: batch version for dashboards
- * roles: array of { id: string; steps: string[] } (your RoleDoc shape)
+ * roles: array of { id: string; steps: string[] } (RoleDoc shape)
  * returns a map { [roleId]: { completed, total, percent } }
  */
 export async function getProgressCountsForRoles(
   userId: string,
   roleIds: string[],
-  roles: Array<{ id: string; steps: string[] }>
+  roles: Array<RoleDoc>
 ): Promise<
   Record<string, { completed: number; total: number; percent: number }>
 > {

@@ -11,16 +11,16 @@ import {
   Row,
   Col,
 } from "react-bootstrap";
+import Markdown from "../components/common/MarkDown";
 import { CheckCircleFill } from "react-bootstrap-icons";
 import { useAuth } from "../hooks/useAuth";
 import { useToast } from "../hooks/useToast";
 import { getRole } from "../services/roleService";
 import { getStepsByIds } from "../services/stepService";
 import { updateUser } from "../services/userService";
-import { RoleDoc } from "./DashboardPage";
 import { StepDoc } from "../types/Step";
 import { LinkContainer } from "react-router-bootstrap";
-import Markdown from "../components/common/MarkDown";
+import { RoleDoc } from "../types/Role";
 
 export default function RoleDetailsPage() {
   const { roleId } = useParams<{ roleId: string }>();

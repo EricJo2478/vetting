@@ -11,6 +11,7 @@ import {
 } from "react";
 import { auth, db } from "../services/firebase";
 import { doc, getDoc } from "firebase/firestore";
+import { ensureUserProfile, getUser } from "../services/userService";
 
 interface AuthContextValue {
   user: User | null; // raw Firebase user (email, uid, etc.)
@@ -37,22 +38,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       try {
-        const ref = doc(db, "users", fbUser.uid);
-        const snap = await getDoc(ref);
-        if (snap.exists()) {
-          const data = snap.data() as Omit<UserDoc, "id">;
-          setProfile({ id: fbUser.uid, ...data });
-        } else {
-          // Profile missing - set sensible defaults
-          setProfile({
-            id: fbUser.uid,
-            email: fbUser.email ?? "",
-            name: fbUser.displayName ?? "",
-            systemRole: "volunteer",
-            roleIds: [],
-            createdAt: new Date().toISOString().slice(0, 10),
-          });
-        }
+        const user = await ensureUserProfile(fbUser);
+        setProfile(user);
       } catch (e) {
         console.error("Error loading user profile:", e);
         setProfile(null);

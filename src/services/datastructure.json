@@ -1,29 +1,29 @@
-users/{uid}
+// users/{uid}
 {
   "email": "jane@example.com",
   "name": "Jane Doe",
-  "systemRole": "reviewer",        // controls system permissions
+  "systemRole": "Volunteer",        // controls system permissions
   "roleIds": ["childcare", "security"],   // vetting roles this user is pursuing
   "createdAt": "2025-09-10T18:00:00Z"
 }
 
-roles/{roleId}
+// roles/{roleId}
 {
   "name": "Childcare Volunteer",
   "description": "Volunteers who help with childcare",
   "steps": ["background_check", "training", "interview"]
 }
 
-steps/{stepId}
+// steps/{stepId}
 {
   "name": "Background Check",
   "description": "Complete a criminal background check",
   "order": 1,
   "expiresInMonths": 24,           // null or missing if never expires
-  "requiresManualReview": true     // optional flag
+  "requiresManualReview": true
 }
 
-users/{uid}/progress/{roleId}
+// users/{uid}/progress/{roleId}
 {
   "roleId": "childcare",
   "steps": {

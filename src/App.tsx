@@ -9,6 +9,7 @@ import RolesCatalog from "./pages/RolesCatalog";
 import RoleDetailsPage from "./pages/RoleDetailsPage";
 import TrackedRoleDetailsPage from "./pages/TrackedRoleDetailsPage";
 import ReviewPage from "./pages/ReviewPage";
+import { approveEntry } from "./services/approvalService";
 
 // Tiny layout wrapper
 function PageLayout({ children }: { children: React.ReactNode }) {
