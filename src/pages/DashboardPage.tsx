@@ -19,6 +19,7 @@ import { LinkContainer } from "react-router-bootstrap";
 import { getProgressCountsForRoles } from "../services/progressService";
 import { RoleDoc } from "../types/Role";
 import { usePermissions } from "../hooks/usePermissions";
+import Markdown from "../components/common/Markdown";
 
 export default function RolesDashboard() {
   const { user, profile, loading: authLoading } = useAuth();
@@ -150,8 +151,8 @@ export default function RolesDashboard() {
                         {role.name}
                       </Card.Title>
                       {role.description && (
-                        <Card.Text className="text-muted mb-2">
-                          {role.description}
+                        <Card.Text as="div" className="text-muted mb-2">
+                          <Markdown>{role.description}</Markdown>
                         </Card.Text>
                       )}
                     </div>

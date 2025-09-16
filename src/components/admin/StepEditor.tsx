@@ -1,217 +1,233 @@
 // src/components/admin/StepEditor.tsx
 import { useEffect, useMemo, useState } from "react";
 import { Button, Card, Form, Table } from "react-bootstrap";
-import {
-  addStep,
-  deleteStep,
-  getStepsByRole,
-  updateStep,
-} from "../../services/roleService";
+import { addStep, deleteStep, getStepsByRole, updateStep } from "../../services/roleService";
 import { StepDoc } from "../../types/Step";
+import MarkdownEditor from "../common/MarkdownEditor";
 
 export default function StepEditor({ roleId }: { roleId: string }) {
   const [steps, setSteps] = useState<StepDoc[]>([]);
   const [loading, setLoading] = useState(true);
+  const [savingId, setSavingId] = useState<string | null>(null);
+  const [adding, setAdding] = useState(false);
   const [form, setForm] = useState<Partial<StepDoc>>({
     name: "",
     description: "",
     order: 1,
-    requiresApproval: true,
-    expiresInMonths: undefined,
+    requiresApproval: false,
     shareable: false,
     templateId: "",
+    autoApproveIfVerified: false,
+    roleId,
   });
 
-  const load = async () => {
-    setLoading(true);
-    const rows = await getStepsByRole(roleId);
-    setSteps(rows);
-    setLoading(false);
-  };
-
   useEffect(() => {
-    load();
+    let cancelled = false;
+    (async () => {
+      setLoading(true);
+      try {
+        const list = await getStepsByRole(roleId);
+        if (!cancelled) setSteps(list);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
   }, [roleId]);
 
-  const nextOrder = useMemo(
-    () => (steps.length ? Math.max(...steps.map((s) => s.order)) + 1 : 1),
-    [steps]
-  );
+  const nextOrder = useMemo(() => {
+    const max = steps.reduce((acc, s) => Math.max(acc, s.order ?? 0), 0);
+    return (isFinite(max) ? max : 0) + 1;
+  }, [steps]);
+
+  const cleanse = (obj: Record<string, any>) =>
+    Object.fromEntries(Object.entries(obj).filter(([, v]) => v !== undefined));
+
+  // Row edits
+  const onRowChange = (id: string, patch: Partial<StepDoc>) => {
+    setSteps((prev) => prev.map((s) => (s.id === id ? { ...s, ...patch } : s)));
+  };
+
+  const onRowSave = async (s: StepDoc) => {
+    setSavingId(s.id);
+    try {
+      const payload = cleanse({
+        name: s.name?.trim(),
+        description: s.description?.trim() || "",
+        order: Number(s.order ?? 0),
+        requiresApproval: !!s.requiresApproval,
+        shareable: !!s.shareable,
+        templateId: s.shareable ? (s.templateId || "").trim() || "shared" : undefined,
+        autoApproveIfVerified: !!s.autoApproveIfVerified,
+      });
+      await updateStep(s.id, payload as any);
+    } finally {
+      setSavingId(null);
+    }
+  };
+
+  const onRowDelete = async (id: string) => {
+    setSavingId(id);
+    try {
+      await deleteStep(id);
+      setSteps((prev) => prev.filter((s) => s.id !== id));
+    } finally {
+      setSavingId(null);
+    }
+  };
 
   const add = async () => {
-    if (!form.name?.trim()) return;
-    await addStep({
-      roleId,
-      name: form.name!.trim(),
-      description: form.description ?? "",
-      order: form.order ?? nextOrder,
-      requiresApproval: !!form.requiresApproval,
-      ...(form.expiresInMonths !== null &&
-      form.expiresInMonths !== undefined &&
-      form.expiresInMonths !== 0
-        ? { expiresInMonths: Number(form.expiresInMonths) }
-        : {}),
-      ...(form.shareable
-        ? { shareable: true, templateId: form.templateId?.trim() || "shared" }
-        : {}), // omit both when not shareable
-    });
-    setForm({
-      name: "",
-      description: "",
-      order: nextOrder,
-      requiresApproval: true,
-      shareable: false,
-      templateId: "",
-    });
-    await load();
-  };
-
-  const remove = async (id: string) => {
-    if (!confirm("Delete this step?")) return;
-    await deleteStep(id);
-    await load();
-  };
-
-  const saveCell = async (id: string, patch: Partial<StepDoc>) => {
-    await updateStep(id, patch);
-    await load();
+    setAdding(true);
+    try {
+      const payload = cleanse({
+        name: (form.name || "").trim(),
+        description: (form.description || "").trim(),
+        order: Number(form.order ?? nextOrder),
+        requiresApproval: !!form.requiresApproval,
+        shareable: !!form.shareable,
+        templateId: form.shareable ? (form.templateId || "").trim() || "shared" : undefined,
+        autoApproveIfVerified: !!form.autoApproveIfVerified,
+        roleId,
+      });
+      const newId = await addStep(payload as any);
+      const fresh = await getStepsByRole(roleId);
+      setSteps(fresh);
+      setForm({
+        name: "",
+        description: "",
+        order: nextOrder + 1,
+        requiresApproval: false,
+        shareable: false,
+        templateId: "",
+        autoApproveIfVerified: false,
+        roleId,
+      });
+    } finally {
+      setAdding(false);
+    }
   };
 
   return (
     <Card className="mt-3">
-      <Card.Header>Steps</Card.Header>
-      <Card.Body>
-        <Table responsive hover>
+      <Card.Header className="d-flex justify-content-between align-items-center">
+        <div>
+          <div className="fw-semibold">Steps</div>
+          <div className="text-muted small">Use Markdown in descriptions for clear, scannable instructions.</div>
+        </div>
+      </Card.Header>
+      <Card.Body className="p-0">
+        <Table responsive hover className="mb-0 align-middle">
           <thead>
             <tr>
               <th style={{ width: 80 }}>Order</th>
               <th>Title</th>
               <th>Description</th>
-              <th style={{ width: 140 }}>Requires approval</th>
-              <th style={{ width: 160 }}>Expires (months)</th>
-              <th style={{ width: 140 }}>Shareable</th>
-              <th style={{ width: 120 }}>templateId</th>
-              <th style={{ width: 120 }}></th>
+              <th style={{ width: 160 }}>Requires approval</th>
+              <th style={{ width: 120 }}>Shareable</th>
+              <th style={{ width: 160 }}>Template ID</th>
+              <th style={{ width: 200 }} className="text-end">Actions</th>
             </tr>
           </thead>
           <tbody>
             {steps.map((s) => (
               <tr key={s.id}>
-                <td>
+                <td style={{ width: 80 }}>
                   <Form.Control
                     size="sm"
                     type="number"
-                    value={s.order}
-                    onChange={(e) =>
-                      saveCell(s.id, { order: Number(e.target.value) })
-                    }
+                    value={s.order ?? 0}
+                    onChange={(e) => onRowChange(s.id, { order: Number(e.target.value) })}
                   />
                 </td>
                 <td>
                   <Form.Control
                     size="sm"
-                    type="text"
-                    value={s.name}
-                    onChange={(e) => saveCell(s.id, { name: e.target.value })}
+                    value={s.name ?? ""}
+                    onChange={(e) => onRowChange(s.id, { name: e.target.value })}
+                    placeholder="Step title"
                   />
                 </td>
                 <td>
-                  <Form.Control
-                    size="sm"
-                    as="textarea"
-                    rows={2}
+                  <MarkdownEditor
                     value={s.description ?? ""}
-                    onChange={(e) =>
-                      saveCell(s.id, { description: e.target.value })
-                    }
+                    onChange={(v) => onRowChange(s.id, { description: v })}
+                    rows={6}
+                    minHeight={120}
+                    placeholder="Description (Markdown allowed)"
                   />
                 </td>
                 <td className="text-center">
                   <Form.Check
                     type="switch"
                     checked={!!s.requiresApproval}
-                    onChange={(e) =>
-                      saveCell(s.id, { requiresApproval: e.target.checked })
-                    }
-                  />
-                </td>
-                <td>
-                  <Form.Control
-                    size="sm"
-                    type="number"
-                    value={form.expiresInMonths ?? ""}
-                    onChange={(e) =>
-                      setForm({
-                        ...form,
-                        expiresInMonths: e.target.value
-                          ? Number(e.target.value)
-                          : null,
-                      })
-                    }
+                    onChange={(e) => onRowChange(s.id, { requiresApproval: e.target.checked })}
+                    label=""
                   />
                 </td>
                 <td className="text-center">
                   <Form.Check
                     type="switch"
                     checked={!!s.shareable}
-                    onChange={(e) =>
-                      saveCell(s.id, { shareable: e.target.checked })
-                    }
+                    onChange={(e) => onRowChange(s.id, { shareable: e.target.checked })}
+                    label=""
                   />
                 </td>
                 <td>
                   <Form.Control
                     size="sm"
-                    type="text"
                     value={s.templateId ?? ""}
-                    onChange={(e) =>
-                      saveCell(s.id, {
-                        templateId: e.target.value || undefined,
-                      })
-                    }
-                    placeholder="e.g. crc"
+                    onChange={(e) => onRowChange(s.id, { templateId: e.target.value })}
+                    placeholder="crc, food-safety, etc."
+                    disabled={!s.shareable}
                   />
                 </td>
                 <td className="text-end">
-                  <Button
-                    variant="outline-danger"
-                    size="sm"
-                    onClick={() => remove(s.id)}
-                  >
-                    Delete
-                  </Button>
+                  <div className="d-flex gap-2 justify-content-end">
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      disabled={savingId === s.id}
+                      onClick={() => onRowSave(s)}
+                    >
+                      {savingId === s.id ? "Saving..." : "Save"}
+                    </Button>
+                    <Button
+                      variant="outline-danger"
+                      size="sm"
+                      disabled={savingId === s.id}
+                      onClick={() => onRowDelete(s.id)}
+                    >
+                      Delete
+                    </Button>
+                  </div>
                 </td>
               </tr>
             ))}
+
+            {/* Add new row */}
             <tr>
               <td>
                 <Form.Control
                   size="sm"
                   type="number"
                   value={form.order ?? nextOrder}
-                  onChange={(e) =>
-                    setForm({ ...form, order: Number(e.target.value) })
-                  }
+                  onChange={(e) => setForm({ ...form, order: Number(e.target.value) })}
                 />
               </td>
               <td>
                 <Form.Control
                   size="sm"
-                  type="text"
                   value={form.name ?? ""}
                   onChange={(e) => setForm({ ...form, name: e.target.value })}
-                  placeholder="Step name"
+                  placeholder="New step title"
                 />
               </td>
               <td>
-                <Form.Control
-                  size="sm"
-                  as="textarea"
-                  rows={2}
+                <MarkdownEditor
                   value={form.description ?? ""}
-                  onChange={(e) =>
-                    setForm({ ...form, description: e.target.value })
-                  }
+                  onChange={(v) => setForm({ ...form, description: v })}
+                  rows={6}
+                  minHeight={120}
                   placeholder="Description (Markdown allowed)"
                 />
               </td>
@@ -219,50 +235,30 @@ export default function StepEditor({ roleId }: { roleId: string }) {
                 <Form.Check
                   type="switch"
                   checked={!!form.requiresApproval}
-                  onChange={(e) =>
-                    setForm({ ...form, requiresApproval: e.target.checked })
-                  }
-                />
-              </td>
-              <td>
-                <Form.Control
-                  size="sm"
-                  type="number"
-                  value={form.expiresInMonths ?? ""}
-                  onChange={(e) =>
-                    setForm({
-                      ...form,
-                      expiresInMonths: e.target.value
-                        ? Number(e.target.value)
-                        : undefined,
-                    })
-                  }
+                  onChange={(e) => setForm({ ...form, requiresApproval: e.target.checked })}
+                  label=""
                 />
               </td>
               <td className="text-center">
                 <Form.Check
                   type="switch"
                   checked={!!form.shareable}
-                  onChange={(e) =>
-                    setForm({ ...form, shareable: e.target.checked })
-                  }
+                  onChange={(e) => setForm({ ...form, shareable: e.target.checked })}
+                  label=""
                 />
               </td>
               <td>
                 <Form.Control
                   size="sm"
-                  type="text"
                   value={form.templateId ?? ""}
-                  onChange={(e) =>
-                    setForm({ ...form, templateId: e.target.value })
-                  }
+                  onChange={(e) => setForm({ ...form, templateId: e.target.value })}
+                  placeholder="crc, food-safety, etc."
                   disabled={!form.shareable}
-                  placeholder="e.g. crc"
                 />
               </td>
               <td className="text-end">
-                <Button variant="primary" size="sm" onClick={add}>
-                  Add step
+                <Button variant="primary" size="sm" onClick={add} disabled={adding}>
+                  {adding ? "Adding..." : "Add step"}
                 </Button>
               </td>
             </tr>

@@ -146,11 +146,7 @@ export default function RoleDetailsPage() {
                               </div>
                             )}
                           </div>
-                          {s.expiresInMonths && (
-                            <span className="badge bg-warning text-dark">
-                              Expires: {s.expiresInMonths} mo
-                            </span>
-                          )}
+                          
                         </div>
                       </ListGroup.Item>
                     ))

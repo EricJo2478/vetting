@@ -1,11 +1,11 @@
-// ---- STEP ----
+// src/types/Step.ts
 
+// ---- STEP ----
 export interface StepDoc {
   id: string;
   name: string;
   description?: string;
   order: number;
-  expiresInMonths?: number | null; // undefined if no expiry
   requiresApproval?: boolean;
   roleId: string;
 

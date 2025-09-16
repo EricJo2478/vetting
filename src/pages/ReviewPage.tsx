@@ -10,189 +10,192 @@ import {
   OverlayTrigger,
   Tooltip,
 } from "react-bootstrap";
-import { useApprovals } from "../hooks/useApprovals";
 import { Link } from "react-router-dom";
-import { usePermissions } from "../hooks/usePermissions";
 import { useAuth } from "../hooks/useAuth";
+import { usePermissions } from "../hooks/usePermissions";
+import { useApprovals } from "../hooks/useApprovals";
+import { approveEntry, returnToPending } from "../services/approvalService";
+
+type ReviewStatus = "submitted" | "approved" | "changes_requested";
+type StepStatus = "pending" | "in-progress" | "completed";
+
+type QueueItem = {
+  id?: string;
+  userId: string;
+  userName?: string;
+  roleId: string;
+  roleName?: string;
+  stepId: string;
+  stepName?: string;
+  status: ReviewStatus;          // entry review status
+  progressStatus?: StepStatus;   // mirrored canonical progress (optional)
+  submittedAt?: number;
+};
 
 export default function ReviewPage() {
-  const [roleFilter, setRoleFilter] = useState<string>("");
-  const [statusFilter, setStatusFilter] = useState<
-    "submitted" | "changes_requested" | "approved" | ""
-  >("");
+  const { user } = useAuth();
+  const { isManager, loading: permsLoading } = usePermissions();
 
-  const { canReview, canManage, loading: permsLoading } = usePermissions();
+  // Realtime queue of entries
+  const { items, loading } = useApprovals({ onlyOpen: false });
 
-  const { items, loading, approve, requestChanges, reopen } = useApprovals(
-    { roleId: roleFilter || undefined, status: statusFilter || undefined },
-    {
-      enabled: !permsLoading && canReview, // don't query until auth/role known
-      allowActions: canManage, // actions only for managers
+  const [statusFilter, setStatusFilter] = useState<"" | ReviewStatus>("");
+  const [busyId, setBusyId] = useState<string | null>(null);
+
+  // Per-row optional expiry date (manager-entered)
+  const [expiresByKey, setExpiresByKey] = useState<Record<string, string>>({});
+
+  const filtered: QueueItem[] = useMemo(() => {
+    const list = Array.isArray(items) ? items : [];
+    return statusFilter ? list.filter((it: any) => it.status === statusFilter) : list;
+  }, [items, statusFilter]);
+
+  // Chips
+  const renderProgressChip = (it: QueueItem) => {
+    const s: StepStatus =
+      it.progressStatus ?? (it.status === "approved" ? "completed" : "in-progress");
+    if (s === "completed") return <Badge bg="success">Completed</Badge>;
+    if (s === "in-progress") return <Badge bg="warning" text="dark">In-progress</Badge>;
+    return <Badge bg="secondary">Pending</Badge>;
+  };
+
+  const renderReviewChip = (s: ReviewStatus) => {
+    if (s === "approved") return <Badge bg="success">Approved</Badge>;
+    if (s === "changes_requested") return <Badge bg="danger">Changes requested</Badge>;
+    return <Badge bg="info">Submitted</Badge>;
+  };
+
+  // Actions
+  const onApprove = async (it: QueueItem) => {
+    if (!isManager) return;
+    const key = `${it.userId}:${it.roleId}:${it.stepId}`;
+    setBusyId(key);
+    try {
+      const expiresAt = (expiresByKey[key] || "").trim() || undefined; // optional
+      await approveEntry({ userId: it.userId, roleId: it.roleId, stepId: it.stepId, expiresAt });
+    } finally {
+      setBusyId(null);
     }
-  );
+  };
 
-  const pendingCount = useMemo(
-    () => items.filter((i) => i.status === "submitted").length,
-    [items]
-  );
+  const onReturnToPending = async (it: QueueItem) => {
+    if (!isManager) return;
+    const key = `${it.userId}:${it.roleId}:${it.stepId}`;
+    setBusyId(key);
+    try {
+      await returnToPending({ userId: it.userId, roleId: it.roleId, stepId: it.stepId });
+    } finally {
+      setBusyId(null);
+    }
+  };
 
-  if (!canReview) {
-    return (
-      <div className="container py-4">
-        <Card>
-          <Card.Body>
-            <Card.Title className="mb-2">Access required</Card.Title>
-            <p className="mb-0">
-              You don’t have permission to view the review queue. Ask a manager
-              to grant you access.
-            </p>
-          </Card.Body>
-        </Card>
-      </div>
-    );
-  }
+  const isLoading = loading || permsLoading;
 
   return (
     <div className="container py-4">
       <Card>
         <Card.Header className="d-flex justify-content-between align-items-center">
-          <div>
-            <Card.Title className="mb-0">Review Queue</Card.Title>
-            <small className="text-muted">
-              {pendingCount} awaiting approval
-            </small>
-          </div>
-          <div className="d-flex gap-2">
-            <Form.Select
-              size="sm"
-              value={roleFilter}
-              onChange={(e) => setRoleFilter(e.target.value)}
-            >
-              <option value="">All roles</option>
-              {/* TODO: populate options from roles collection */}
-            </Form.Select>
+          <div className="fw-semibold">Review queue</div>
+          <div className="d-flex align-items-center gap-2">
             <Form.Select
               size="sm"
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value as any)}
+              aria-label="Filter by review status"
             >
               <option value="">All statuses</option>
               <option value="submitted">Submitted</option>
-              <option value="changes_requested">Changes requested</option>
               <option value="approved">Approved</option>
+              <option value="changes_requested">Changes requested</option>
             </Form.Select>
           </div>
         </Card.Header>
+
         <Card.Body className="p-0">
-          {loading ? (
+          {isLoading ? (
             <div className="p-4 d-flex justify-content-center">
               <Spinner animation="border" />
             </div>
+          ) : filtered.length === 0 ? (
+            <div className="p-4 text-muted">Nothing to review.</div>
           ) : (
             <Table responsive hover className="mb-0">
               <thead>
                 <tr>
-                  <th>User</th>
+                  <th>Volunteer</th>
                   <th>Role</th>
                   <th>Step</th>
                   <th>Submitted</th>
                   <th>Status</th>
-                  <th>Notes</th>
-                  <th style={{ width: 240 }}>Actions</th>
+                  <th className="text-end">Actions</th>
                 </tr>
               </thead>
               <tbody>
-                {items.map((it) => (
-                  <tr key={it.id}>
-                    <td>
-                      <div className="d-flex flex-column">
-                        <span className="fw-semibold">
-                          {it.userEmail ?? it.userId}
-                        </span>
-                        <small className="text-muted">UID: {it.userId}</small>
-                      </div>
-                    </td>
-                    <td>{it.roleName ?? it.roleId}</td>
-                    <td>{it.stepName ?? it.stepId}</td>
-                    <td>
-                      {it.submittedAt
-                        ? new Date(it.submittedAt).toLocaleString()
-                        : "—"}
-                    </td>
-                    <td>
-                      <Badge
-                        bg={
-                          it.status === "approved"
-                            ? "success"
-                            : it.status === "changes_requested"
-                            ? "warning"
-                            : "primary"
-                        }
-                      >
-                        {it.status.replace("_", " ")}
-                      </Badge>
-                    </td>
-                    <td style={{ maxWidth: 320 }}>
-                      <small className="text-muted">{it.notes ?? ""}</small>
-                    </td>
-                    <td className="d-flex gap-2">
-                      {canManage ? (
-                        <>
-                          <Button
-                            size="sm"
-                            variant="success"
-                            onClick={() => approve(it)}
-                            disabled={it.status === "approved"}
-                          >
-                            Approve
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="warning"
-                            onClick={() => {
-                              const msg = prompt(
-                                "Enter notes for requested changes:",
-                                it.notes ?? ""
-                              );
-                              requestChanges({ ...it, notes: msg ?? "" });
-                            }}
-                          >
-                            Request changes
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline-secondary"
-                            onClick={() => reopen(it)}
-                            disabled={it.status !== "approved"}
-                          >
-                            Reopen
-                          </Button>
-                        </>
-                      ) : (
-                        <OverlayTrigger
-                          placement="top"
-                          overlay={
-                            <Tooltip id={`tt-${it.id}`}>
-                              Supervisors have view-only access
-                            </Tooltip>
-                          }
-                        >
-                          <div className="d-flex gap-2">
-                            <Button size="sm" variant="secondary" disabled>
-                              Approve
+                {filtered.map((it) => {
+                  const key = `${it.userId}:${it.roleId}:${it.stepId}`;
+                  const disabled = busyId === key;
+
+                  return (
+                    <tr key={key}>
+                      <td><Link to={`/users/${it.userId}`}>{it.userName || it.userId}</Link></td>
+                      <td><Link to={`/roles/${it.roleId}`}>{it.roleName || it.roleId}</Link></td>
+                      <td>{it.stepName || it.stepId}</td>
+                      <td>{it.submittedAt ? new Date(it.submittedAt).toLocaleString() : "—"}</td>
+                      <td>
+                        <div className="d-flex gap-2">
+                          {renderProgressChip(it)}
+                          {renderReviewChip(it.status)}
+                        </div>
+                      </td>
+                      <td className="text-end">
+                        {isManager ? (
+                          <div className="d-flex gap-2 justify-content-end align-items-center">
+                            {/* Optional expiry date (manager-entered) */}
+                            <Form.Control
+                              size="sm"
+                              type="date"
+                              style={{ maxWidth: 160 }}
+                              value={expiresByKey[key] || ""}
+                              onChange={(e) =>
+                                setExpiresByKey((prev) => ({
+                                  ...prev,
+                                  [key]: e.target.value,
+                                }))
+                              }
+                            />
+                            <Button
+                              size="sm"
+                              variant="success"
+                              disabled={disabled || it.status === "approved"}
+                              onClick={() => onApprove(it)}
+                            >
+                              {disabled && it.status !== "approved"
+                                ? <Spinner size="sm" animation="border" />
+                                : "Approve"}
                             </Button>
-                            <Button size="sm" variant="secondary" disabled>
-                              Request changes
-                            </Button>
-                            <Button size="sm" variant="secondary" disabled>
-                              Reopen
+                            <Button
+                              size="sm"
+                              variant="outline-warning"
+                              disabled={disabled}
+                              onClick={() => onReturnToPending(it)}
+                            >
+                              {disabled
+                                ? <Spinner size="sm" animation="border" />
+                                : "Return to Pending"}
                             </Button>
                           </div>
-                        </OverlayTrigger>
-                      )}
-                    </td>
-                  </tr>
-                ))}
+                        ) : (
+                          <OverlayTrigger
+                            placement="top"
+                            overlay={<Tooltip id={`tt-${key}`}>Supervisors have view-only access</Tooltip>}
+                          >
+                            <div className="text-muted">No actions</div>
+                          </OverlayTrigger>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </Table>
           )}

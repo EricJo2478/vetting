@@ -41,7 +41,17 @@ service cloud.firestore {
       function isSupervisor() {
         return request.auth != null &&
           get(/databases/$(db)/documents/users/$(request.auth.uid)).data.systemRole == "supervisor";
-      }
+      } 
+      // owner can read their own credential; managers/supervisors can also read
+      allow read: if request.auth != null
+                  && (request.auth.uid == uid
+                      || get(/databases/$(db)/documents/users/$(request.auth.uid)).data.systemRole in ['manager','supervisor']);
+
+      // owner can create/update their own credential (e.g., first submission),
+      // managers can also update (e.g., verify)
+      allow create, update: if request.auth != null
+                            && (request.auth.uid == uid
+                                || get(/databases/$(db)/documents/users/$(request.auth.uid)).data.systemRole == 'manager');
 
       // Read: owner, supervisor, manager
       allow read: if isOwner() || isSupervisor() || isManager();
@@ -69,12 +79,30 @@ service cloud.firestore {
       // Role-level summary (owner-owned)
       match /progress/{roleId} {
         allow read, write: if isAuthed() && request.auth.uid == uid;
+        // Volunteer may create their own progress doc
+        allow create: if request.auth != null && request.auth.uid == uid;
+
+        // Volunteer may update ONLY top-level "steps" (flip pending ↔ in-progress)
+        // - We scope changes to the top-level key to avoid privilege escalation.
+        // - Managers keep any broader update power you already have elsewhere.
+        allow update: if request.auth != null
+                      && request.auth.uid == uid
+                      && request.resource.data.diff(resource.data).changedKeys().hasOnly(['steps']);
 
         // Step-level entries (queried by collectionGroup "entries")
         match /entries/{stepId} {
           function isOwner() { return isAuthed() && request.auth.uid == uid; }
           function canView() { return isOwner() || isSupervisor() || isManager(); }
           function canEdit() { return isManager(); }
+					allow update: if request.auth != null
+              && request.auth.uid == uid
+              && request.resource.data.keys().hasOnly(['status'])
+              && request.resource.data.status in ['submitted','pending'];
+          // Volunteer can SUBMIT by creating their own entry
+          allow create: if request.auth != null && request.auth.uid == uid;
+
+          // Volunteer can WITHDRAW by deleting their own entry
+          allow delete: if request.auth != null && request.auth.uid == uid;
 
           // Anyone with rights can read (owner, supervisor, manager)
           allow read: if canView();

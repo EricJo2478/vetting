@@ -9,149 +9,150 @@ import {
   Form,
   Row,
 } from "react-bootstrap";
-import { useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import {
   createRole,
   getRole,
-  publishRole,
   updateRole,
 } from "../../services/roleService";
 import StepEditor from "../../components/admin/StepEditor";
 import { RoleDoc } from "../../types/Role";
-import { LinkContainer } from "react-router-bootstrap";
+import MarkdownEditor from "../../components/common/MarkdownEditor";
 
 export default function RoleEditor() {
-  const [search] = useSearchParams();
   const navigate = useNavigate();
-  const [saved, setSaved] = useState<string | null>(null);
-  const params = useParams();
-  const paramRoleId = params.roleId ?? null;
+  const { roleId } = useParams<{ roleId: string }>();
 
-  const [roleId, setRoleId] = useState<string | null>(search.get("id"));
   const [role, setRole] = useState<Partial<RoleDoc>>({
     name: "",
     description: "",
     isPublished: false,
   });
+  const [loading, setLoading] = useState(true);
+  const [saved, setSaved] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    let cancelled = false;
     (async () => {
-      if (!paramRoleId) return; // create mode
-      const existing = await getRole(paramRoleId);
-      if (existing) {
-        setRoleId(existing.id);
-        setRole({
-          name: existing.name,
-          description: existing.description ?? "",
-          isPublished: !!existing.isPublished,
-        });
+      setLoading(true);
+      setError(null);
+      try {
+        if (roleId) {
+          const doc = await getRole(roleId);
+          if (!cancelled) setRole(doc || {});
+        }
+      } catch (e: any) {
+        console.error(e);
+        if (!cancelled) setError(e?.message || "Failed to load role");
+      } finally {
+        if (!cancelled) setLoading(false);
       }
     })();
-  }, [paramRoleId]);
+    return () => { cancelled = true; };
+  }, [roleId]);
 
   const onCreate = async () => {
-    if (!role.name?.trim()) return;
-    const id = await createRole({
-      name: role.name!.trim(),
-      description: role.description ?? "",
-      isPublished: !!role.isPublished,
-    });
-    setRoleId(id);
-    setSaved("Created role");
-    navigate({ search: `?id=${id}` }, { replace: true });
+    setError(null);
+    setSaved(null);
+    try {
+      const newId = await createRole({
+        name: role.name?.trim() || "Untitled role",
+        description: role.description?.trim() || "",
+        isPublished: !!role.isPublished,
+      });
+      navigate(`/admin/roles/${newId}`);
+    } catch (e: any) {
+      setError(e?.message || "Could not create role");
+    }
   };
 
   const onSave = async () => {
     if (!roleId) return;
-    await updateRole(roleId, {
-      name: role.name ?? "",
-      description: role.description ?? "",
-      isPublished: !!role.isPublished,
-    });
-    setSaved("Saved");
-  };
-
-  const onPublishToggle = async (checked: boolean) => {
-    if (!roleId) return;
-    await publishRole(roleId, checked);
-    setRole((r) => ({ ...r, isPublished: checked }));
-    setSaved(checked ? "Published" : "Unpublished");
+    setError(null);
+    setSaved(null);
+    try {
+      await updateRole(roleId, {
+        name: role.name?.trim() || "Untitled role",
+        description: role.description?.trim() || "",
+        isPublished: !!role.isPublished,
+      });
+      setSaved("Saved");
+    } catch (e: any) {
+      setError(e?.message || "Could not save role");
+    }
   };
 
   return (
     <Container className="py-4">
-      <Row className="mb-3">
-        <Col>
-          <h2>{roleId ? "Edit Role" : "Create Role"}</h2>
-        </Col>
-        <Col className="text-end">
-          <LinkContainer to="/catalog">
-            <Button variant="outline-secondary" size="sm">
-              New Role
-            </Button>
-          </LinkContainer>
-        </Col>
-      </Row>
-
-      {saved && (
-        <Alert variant="success" onClose={() => setSaved(null)} dismissible>
-          {saved}
-        </Alert>
-      )}
-
       <Card>
+        <Card.Header>
+          <div className="d-flex justify-content-between align-items-center">
+            <div>
+              <div className="fw-semibold">{roleId ? "Edit role" : "Create role"}</div>
+              <div className="text-muted small">
+                Volunteers will see this name and description. The description supports Markdown for simple formatting.
+              </div>
+            </div>
+            <div className="d-flex align-items-center gap-3">
+              <Form.Check
+                type="switch"
+                id="publish-switch"
+                label="Published"
+                checked={!!role.isPublished}
+                onChange={(e) => setRole({ ...role, isPublished: e.target.checked })}
+              />
+              {roleId ? (
+                <Button variant="primary" onClick={onSave}>Save</Button>
+              ) : (
+                <Button variant="primary" onClick={onCreate}>Create role</Button>
+              )}
+            </div>
+          </div>
+        </Card.Header>
+
         <Card.Body>
+          {error && <Alert variant="danger" className="mb-3">{error}</Alert>}
+          {saved && <Alert variant="success" className="mb-3">{saved}</Alert>}
+
           <Row className="g-3">
             <Col md={6}>
-              <Form.Group>
+              <Form.Group controlId="role-name">
                 <Form.Label>Role name</Form.Label>
                 <Form.Control
                   value={role.name ?? ""}
                   onChange={(e) => setRole({ ...role, name: e.target.value })}
-                  placeholder="e.g. Food Bank Helper"
+                  placeholder="e.g., Food Bank Greeter"
                 />
               </Form.Group>
             </Col>
-            <Col md={6} className="d-flex align-items-end">
-              <Form.Check
-                type="switch"
-                id="publish-switch"
-                label="Published (visible in catalog)"
-                checked={!!role.isPublished}
-                onChange={(e) => onPublishToggle(e.target.checked)}
-                disabled={!roleId}
-              />
+            <Col md={6} className="d-flex align-items-end justify-content-end">
+              <div className="text-muted small text-end">
+                Toggle <strong>Published</strong> to make this role visible in the catalog.
+              </div>
             </Col>
-            <Col md={12}>
-              <Form.Group>
-                <Form.Label>Description (Markdown allowed)</Form.Label>
-                <Form.Control
-                  as="textarea"
-                  rows={6}
+
+            <Col xs={12}>
+              <Form.Group controlId="role-description">
+                <Form.Label>Description</Form.Label>
+                <MarkdownEditor
                   value={role.description ?? ""}
-                  onChange={(e) =>
-                    setRole({ ...role, description: e.target.value })
-                  }
+                  onChange={(v) => setRole({ ...role, description: v })}
+                  rows={6}
+                  minHeight={140}
+                  placeholder="Describe the role. Use Markdown for formatting."
                 />
               </Form.Group>
             </Col>
           </Row>
-
-          <div className="mt-3 d-flex gap-2">
-            {!roleId ? (
-              <Button variant="primary" onClick={onCreate}>
-                Create role
-              </Button>
-            ) : (
-              <Button variant="primary" onClick={onSave}>
-                Save
-              </Button>
-            )}
-          </div>
         </Card.Body>
       </Card>
 
-      {roleId && <StepEditor roleId={roleId} />}
+      {roleId && (
+        <div className="mt-3">
+          <StepEditor roleId={roleId} />
+        </div>
+      )}
     </Container>
   );
 }
