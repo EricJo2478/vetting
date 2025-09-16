@@ -10,6 +10,10 @@ import {
   query,
   orderBy,
   deleteDoc,
+  arrayRemove,
+  increment,
+  arrayUnion,
+  runTransaction,
 } from "firebase/firestore";
 import { db } from "./firebase";
 import { RoleDoc } from "../types/Role";
@@ -38,17 +42,17 @@ export async function createRole(input: {
   name: string;
   description?: string;
   isPublished?: boolean;
-}): Promise<string> {
-  const col = collection(db, "roles");
+}) {
   const now = Date.now();
-  const docRef = await addDoc(col, {
+  const ref = await addDoc(collection(db, "roles"), {
     name: input.name,
     description: input.description ?? "",
     isPublished: !!input.isPublished,
+    steps: [], // ✅ keep an index of step IDs
     createdAt: now,
     updatedAt: now,
   });
-  return docRef.id as string;
+  return ref.id as string;
 }
 
 export async function updateRole(
@@ -68,15 +72,40 @@ export async function publishRole(
 
 export async function addStep(
   input: Omit<StepDoc, "id" | "createdAt" | "updatedAt">
-): Promise<string> {
-  const col = collection(db, "steps");
+) {
   const now = Date.now();
-  const docRef = await addDoc(col, {
-    ...input,
-    createdAt: now,
-    updatedAt: now,
+  // Omit undefined/empty optional values
+  const payload = Object.fromEntries(
+    Object.entries({ ...input, createdAt: now, updatedAt: now }).filter(
+      ([k, v]) => v !== undefined && v !== ""
+    )
+  );
+  return await runTransaction(db, async (tx) => {
+    const stepRef = doc(collection(db, "steps"));
+    tx.set(stepRef, payload);
+    const roleRef = doc(db, "roles", input.roleId);
+    tx.update(roleRef, {
+      steps: arrayUnion(stepRef.id),
+      stepsCount: increment(1),
+      updatedAt: Date.now(),
+    });
+    return stepRef.id;
   });
-  return docRef.id as string;
+}
+
+export async function deleteStep(stepId: string) {
+  const stepRef = doc(db, "steps", stepId);
+  const snap = await getDoc(stepRef);
+  const roleId = (snap.data() as any)?.roleId;
+  await deleteDoc(stepRef);
+
+  if (roleId) {
+    await updateDoc(doc(db, "roles", roleId), {
+      steps: arrayRemove(stepId),
+      stepsCount: increment(-1),
+      updatedAt: Date.now(),
+    });
+  }
 }
 
 export async function updateStep(
@@ -95,9 +124,4 @@ export async function getStepsByRole(roleId: string): Promise<StepDoc[]> {
     id: d.id,
     ...(d.data() as any),
   })) as StepDoc[];
-}
-
-export async function deleteStep(stepId: string): Promise<void> {
-  const ref = doc(db, "steps", stepId);
-  await deleteDoc(ref);
 }

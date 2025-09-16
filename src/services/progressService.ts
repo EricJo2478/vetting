@@ -1,5 +1,11 @@
 // src/services/progressService.ts
-import { doc, getDoc, setDoc, writeBatch } from "firebase/firestore";
+import {
+  deleteField,
+  doc,
+  getDoc,
+  setDoc,
+  writeBatch,
+} from "firebase/firestore";
 import { db } from "./firebase";
 import { ProgressDoc, StepProgress } from "../types/Progress";
 import { RoleDoc } from "../types/Role";
@@ -10,6 +16,10 @@ function isValid(cred: any) {
   const notExpired = !cred?.expiresAt || cred.expiresAt > Date.now();
   return ok && notExpired;
 }
+
+// helper: remove undefined keys
+const stripUndef = <T extends Record<string, any>>(o: T): T =>
+  Object.fromEntries(Object.entries(o).filter(([, v]) => v !== undefined)) as T;
 
 export async function getProgress(
   userId: string,
@@ -37,71 +47,116 @@ export async function updateStepProgress(
     step.id
   );
 
-  // If the step is shareable, look up (or create) the credential
+  // sanitize the nested progress payload
+  const safeProgress = stripUndef(progress);
+
+  // ---- SHAREABLE (credential-backed) STEP ----
   if (step.shareable && step.templateId) {
-    const credId = step.templateId; // or compose scope here if needed
-    const credRef = doc(db, "users", uid, "credentials", credId);
+    const credRef = doc(db, "users", uid, "credentials", step.templateId);
     const credSnap = await getDoc(credRef);
     const credential = credSnap.data();
-    const alreadyValid = isValid(credential);
+    const alreadyValid = isValid(credential); // your existing helper
 
-    const entryStatus = alreadyValid
-      ? step.autoApproveIfVerified
-        ? "approved"
-        : "submitted"
-      : "submitted";
+    const entryStatus =
+      alreadyValid && step.autoApproveIfVerified ? "approved" : "submitted";
 
     const batch = writeBatch(db);
 
-    // Ensure the parent progress doc exists and write the per-role entry
-    batch.set(progressRef, { steps: { [step.id]: progress } }, { merge: true });
-
+    // 1) write/merge the per-role progress map WITHOUT undefineds
     batch.set(
-      entryRef,
-      {
-        userId: uid,
-        roleId,
-        stepId: step.id,
-        templateId: step.templateId,
-        status: entryStatus,
-        submittedAt: Date.now(),
-        satisfiedByCredential: alreadyValid,
-      },
+      progressRef,
+      { steps: { [step.id]: safeProgress } },
       { merge: true }
     );
 
-    // If there is no credential, create a submitted one (manager will verify)
-    if (!credSnap.exists()) {
-      batch.set(credRef, {
-        id: credId,
-        templateId: step.templateId,
-        status: "submitted",
-        updatedAt: Date.now(),
-        sourceRoleIds: [roleId],
+    // 2) if reverting to pending, remove date fields explicitly
+    if (safeProgress.status !== "completed") {
+      batch.update(progressRef, {
+        [`steps.${step.id}.completedAt`]: deleteField(),
+        [`steps.${step.id}.expiresAt`]: deleteField(),
       });
+    }
+
+    // 3) create/update the review entry ONLY when completed
+    if (safeProgress.status === "completed") {
+      batch.set(
+        entryRef,
+        stripUndef({
+          userId: uid,
+          roleId,
+          stepId: step.id,
+          templateId: step.templateId, // omitted if undefined
+          status: entryStatus,
+          submittedAt: Date.now(),
+          satisfiedByCredential: alreadyValid,
+          approvedAt: entryStatus === "approved" ? Date.now() : undefined,
+        }),
+        { merge: true }
+      );
+    }
+
+    // 4) bootstrap a credential if it doesn't exist yet
+    if (!credSnap.exists()) {
+      batch.set(
+        credRef,
+        stripUndef({
+          id: step.templateId,
+          templateId: step.templateId,
+          status: "submitted",
+          updatedAt: Date.now(),
+          sourceRoleIds: [roleId],
+        })
+      );
     }
 
     await batch.commit();
     return;
   }
 
-  // Non-shareable: keep your existing per-role behavior
+  // ---- NON-SHAREABLE STEP ----
+  // 1) write/merge the per-role progress map WITHOUT undefineds
   await setDoc(
     progressRef,
-    { steps: { [step.id]: progress } },
+    { steps: { [step.id]: safeProgress } },
     { merge: true }
   );
-  await setDoc(
-    entryRef,
-    {
-      userId: uid,
-      roleId,
-      stepId: step.id,
-      status: progress.status === "completed" ? "submitted" : "submitted",
-      submittedAt: Date.now(),
-    },
-    { merge: true }
-  );
+
+  // 2) if reverting to pending, remove date fields explicitly
+  if (safeProgress.status !== "completed") {
+    await setDoc(
+      progressRef,
+      {
+        [`steps.${step.id}`]: stripUndef({
+          status: safeProgress.status,
+        }),
+      },
+      { merge: true }
+    );
+    await setDoc(
+      progressRef,
+      {
+        // delete fields in a separate update
+        [`steps.${step.id}.completedAt`]: deleteField(),
+        [`steps.${step.id}.expiresAt`]: deleteField(),
+      } as any,
+      { merge: true }
+    );
+  }
+
+  // 3) create/update the review entry ONLY when completed
+  if (safeProgress.status === "completed") {
+    await setDoc(
+      entryRef,
+      {
+        userId: uid,
+        roleId,
+        stepId: step.id,
+        status: "submitted",
+        submittedAt: Date.now(),
+      },
+      { merge: true }
+    );
+  }
 }
 
 /** Helper: compute counts from a raw progress doc and the role's step list */

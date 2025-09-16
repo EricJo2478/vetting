@@ -7,7 +7,6 @@ import {
   Badge,
   Button,
   Spinner,
-  Breadcrumb,
   Row,
   Col,
 } from "react-bootstrap";
@@ -100,12 +99,6 @@ export default function RoleDetailsPage() {
   if (!role) {
     return (
       <div className="container py-4">
-        <Breadcrumb className="mb-3">
-          <Breadcrumb.Item linkAs={Link} linkProps={{ to: "/catalog" }}>
-            Roles
-          </Breadcrumb.Item>
-          <Breadcrumb.Item active>Not Found</Breadcrumb.Item>
-        </Breadcrumb>
         <Card body className="text-muted">
           Role not found.
         </Card>
@@ -115,19 +108,6 @@ export default function RoleDetailsPage() {
 
   return (
     <div className="container py-4">
-      <Breadcrumb className="mb-3">
-        {user ? (
-          <Breadcrumb.Item linkAs={Link} linkProps={{ to: "/roles" }}>
-            Roles
-          </Breadcrumb.Item>
-        ) : (
-          <Breadcrumb.Item linkAs={Link} linkProps={{ to: "/catalog" }}>
-            Roles
-          </Breadcrumb.Item>
-        )}
-        <Breadcrumb.Item active>{role.name}</Breadcrumb.Item>
-      </Breadcrumb>
-
       <Row className="g-4">
         <Col lg={8}>
           <Card className="h-100">

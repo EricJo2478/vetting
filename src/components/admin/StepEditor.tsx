@@ -46,11 +46,14 @@ export default function StepEditor({ roleId }: { roleId: string }) {
       description: form.description ?? "",
       order: form.order ?? nextOrder,
       requiresApproval: !!form.requiresApproval,
-      expiresInMonths: form.expiresInMonths
-        ? Number(form.expiresInMonths)
-        : null,
-      shareable: !!form.shareable,
-      templateId: form.shareable ? form.templateId || "shared" : "",
+      ...(form.expiresInMonths !== null &&
+      form.expiresInMonths !== undefined &&
+      form.expiresInMonths !== 0
+        ? { expiresInMonths: Number(form.expiresInMonths) }
+        : {}),
+      ...(form.shareable
+        ? { shareable: true, templateId: form.templateId?.trim() || "shared" }
+        : {}), // omit both when not shareable
     });
     setForm({
       name: "",

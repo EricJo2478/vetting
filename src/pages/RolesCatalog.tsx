@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Card, Row, Col, Spinner, Button, Breadcrumb } from "react-bootstrap";
+import { Card, Row, Col, Spinner, Button } from "react-bootstrap";
 import { Link } from "react-router-dom";
 import { getRoles } from "../services/roleService";
 import { LinkContainer } from "react-router-bootstrap";
@@ -40,10 +40,6 @@ export default function RolesCatalog() {
 
   return (
     <div className="container py-4">
-      <Breadcrumb className="mb-3">
-        <Breadcrumb.Item active>Roles</Breadcrumb.Item>
-      </Breadcrumb>
-
       <h2 className="mb-3">Volunteer Roles</h2>
       <Row xs={1} md={2} lg={3} className="g-3">
         {roles.map((role) => (

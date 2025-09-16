@@ -7,7 +7,6 @@ import {
   Badge,
   Button,
   Spinner,
-  Breadcrumb,
   OverlayTrigger,
   Tooltip,
 } from "react-bootstrap";
@@ -21,7 +20,6 @@ export default function ReviewPage() {
   const [statusFilter, setStatusFilter] = useState<
     "submitted" | "changes_requested" | "approved" | ""
   >("");
-  const { user } = useAuth();
 
   const { canReview, canManage, loading: permsLoading } = usePermissions();
 
@@ -41,15 +39,6 @@ export default function ReviewPage() {
   if (!canReview) {
     return (
       <div className="container py-4">
-        <Breadcrumb className="mb-3">
-          <Breadcrumb.Item
-            linkAs={Link}
-            linkProps={user ? { to: "/roles" } : { to: "/catalog" }}
-          >
-            Catalog
-          </Breadcrumb.Item>
-          <Breadcrumb.Item active>Review</Breadcrumb.Item>
-        </Breadcrumb>
         <Card>
           <Card.Body>
             <Card.Title className="mb-2">Access required</Card.Title>
@@ -65,13 +54,6 @@ export default function ReviewPage() {
 
   return (
     <div className="container py-4">
-      <Breadcrumb className="mb-3">
-        <Breadcrumb.Item linkAs={Link} linkProps={{ to: "/catalog" }}>
-          Catalog
-        </Breadcrumb.Item>
-        <Breadcrumb.Item active>Review</Breadcrumb.Item>
-      </Breadcrumb>
-
       <Card>
         <Card.Header className="d-flex justify-content-between align-items-center">
           <div>
