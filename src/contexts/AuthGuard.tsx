@@ -6,23 +6,29 @@ import { usePermissions } from "../hooks/usePermissions";
 
 export function AuthGuard({
   children,
+  requireSupervisor = false,
   requireManager = false,
 }: {
   children: ReactNode;
   requireManager?: boolean;
+  requireSupervisor?: boolean;
 }) {
   const { user, loading } = useAuth();
   const navigate = useNavigate();
-  const { isManager } = usePermissions();
+  const { loading: permsLoading, canManage, canReview } = usePermissions();
 
   useEffect(() => {
-    if (!loading && !user) {
-      navigate("/login", { replace: true });
-    } else if (requireManager && !isManager) {
+    if (!loading && !permsLoading && !user) {
+      navigate("/catalog", { replace: true });
+    } else if (
+      (requireManager && !canManage) ||
+      (requireSupervisor && !canReview)
+    ) {
       navigate("/roles", { replace: true });
     }
-  }, [loading, user, navigate]);
+  }, [loading, permsLoading, user, navigate]);
 
-  if (loading) return <div className="container py-5">Loading…</div>;
+  if (loading || permsLoading)
+    return <div className="container py-5">Loading…</div>;
   return <>{children}</>;
 }

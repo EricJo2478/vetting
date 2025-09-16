@@ -8,9 +8,11 @@ import { AuthGuard } from "./contexts/AuthGuard";
 import RolesCatalog from "./pages/RolesCatalog";
 import RoleDetailsPage from "./pages/RoleDetailsPage";
 import TrackedRoleDetailsPage from "./pages/TrackedRoleDetailsPage";
-import ReviewPage from "./pages/ReviewPage";
+import ReviewPage from "./pages/admin/ReviewPage";
 import { approveEntry } from "./services/approvalService";
 import RoleEditor from "./pages/admin/RoleEditor";
+import TeamProgressPage from "./pages/admin/TeamProgressPage";
+import LegacyImportPage from "./pages/admin/LegacyImportPage";
 
 // Tiny layout wrapper
 function PageLayout({ children }: { children: React.ReactNode }) {
@@ -56,6 +58,16 @@ export default function App() {
             <AuthGuard requireManager>
               <PageLayout>
                 <RoleEditor />
+              </PageLayout>
+            </AuthGuard>
+          }
+        />
+        <Route
+          path="/legacy"
+          element={
+            <AuthGuard requireManager>
+              <PageLayout>
+                <LegacyImportPage />
               </PageLayout>
             </AuthGuard>
           }
@@ -108,8 +120,18 @@ export default function App() {
           path="/review"
           element={
             <PageLayout>
-              <AuthGuard>
+              <AuthGuard requireManager>
                 <ReviewPage />
+              </AuthGuard>
+            </PageLayout>
+          }
+        />
+        <Route
+          path="/progress"
+          element={
+            <PageLayout>
+              <AuthGuard requireSupervisor>
+                <TeamProgressPage />
               </AuthGuard>
             </PageLayout>
           }

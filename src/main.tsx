@@ -4,11 +4,14 @@ import App from "./App";
 import "bootstrap/dist/css/bootstrap.min.css";
 import "./main.css";
 import { AuthProvider } from "./contexts/AuthContext";
+import { PermsProvider } from "./contexts/PermsContext";
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <AuthProvider>
-      <App />
+      <PermsProvider>
+        <App />
+      </PermsProvider>
     </AuthProvider>
   </StrictMode>
 );

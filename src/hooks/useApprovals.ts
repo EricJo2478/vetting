@@ -8,6 +8,8 @@ import {
 } from "firebase/firestore";
 import { db } from "../services/firebase";
 import { ReviewStatus, StepStatus } from "../types/Progress";
+import { usePermissions } from "./usePermissions";
+import { useAuth } from "./useAuth";
 
 export interface ApprovalItem {
   id?: string;
@@ -34,8 +36,19 @@ export function useApprovals(opts?: {
   const [items, setItems] = useState<ApprovalItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<unknown>(null);
+  const { role, isManager } = usePermissions();
 
   useEffect(() => {
+    // Wait until role resolved
+    if (role === undefined) return;
+
+    // If not privileged, don't even attempt the query — avoid permission errors and flicker
+    if (isManager === false) {
+      setItems([]);
+      setLoading(false);
+      setError(null);
+      return;
+    }
     setLoading(true);
     setError(null);
 
@@ -69,7 +82,7 @@ export function useApprovals(opts?: {
     );
 
     return () => unsub();
-  }, [roleId, status, onlyOpen]);
+  }, [roleId, status, onlyOpen, role, isManager]);
 
   return { items, loading, error };
 }

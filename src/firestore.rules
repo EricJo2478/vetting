@@ -1,122 +1,94 @@
-// firestore.rules — supervisors can VIEW entries; ONLY managers can approve/edit.
+// firestore.rules — volunteers can submit/withdraw; managers approve/reset.
+// Supervisors can view; managers can edit catalog and approvals.
 rules_version = '2';
 service cloud.firestore {
   match /databases/{db}/documents {
 
+    // ----- Helpers -----
+    function isAuthed() { return request.auth != null; }
+    function isOwner(uid) { return isAuthed() && request.auth.uid == uid; }
     function userRole(uid) {
       return get(/databases/$(db)/documents/users/$(uid)).data.systemRole;
     }
-    function isAuthed() { return request.auth != null; }
-    function isManager() {
-      return isAuthed() && userRole(request.auth.uid) == 'manager';
-    }
-    function isSupervisor() {
-      return isAuthed() && userRole(request.auth.uid) == 'supervisor';
-    }
-    function isVolunteer() {
-      return isAuthed() && userRole(request.auth.uid) == 'volunteer';
-    }
+    function isManager() { return isAuthed() && userRole(request.auth.uid) == 'manager'; }
+    function isSupervisor() { return isAuthed() && userRole(request.auth.uid) == 'supervisor'; }
 
-    // Catalog
-    match /roles/{roleId} {
-      allow read: if true;
-      allow write: if isManager();
+    // Allow managers/supervisors to read the collection group "entries" anywhere,
+    // so collectionGroup('entries') in useApprovals can succeed.
+    match /{path=**}/entries/{stepId} {
+      allow read: if isManager() || isSupervisor();
     }
-    match /steps/{stepId} {
-      allow read: if true;
-      allow write: if isManager();
+    
+    // Add alongside your other helpers (keep your existing rules intact)
+    match /databases/{db}/documents/{path=**}/progress/{roleId} {
+      allow read: if isManager() || isSupervisor();
     }
 
-    // Admin
-    match /roles/{roleId} { allow read: if true; allow write: if isManager(); }
-    match /steps/{stepId} { allow read: if true; allow write: if isManager(); }
-
-    // Shared credentials
-    match /users/{uid}/credentials/{credId} {
-      function isOwner() { return request.auth != null && request.auth.uid == uid; }
-      function isManager() {
-        return request.auth != null &&
-          get(/databases/$(db)/documents/users/$(request.auth.uid)).data.systemRole == "manager";
-      }
-      function isSupervisor() {
-        return request.auth != null &&
-          get(/databases/$(db)/documents/users/$(request.auth.uid)).data.systemRole == "supervisor";
-      } 
-      // owner can read their own credential; managers/supervisors can also read
-      allow read: if request.auth != null
-                  && (request.auth.uid == uid
-                      || get(/databases/$(db)/documents/users/$(request.auth.uid)).data.systemRole in ['manager','supervisor']);
-
-      // owner can create/update their own credential (e.g., first submission),
-      // managers can also update (e.g., verify)
-      allow create, update: if request.auth != null
-                            && (request.auth.uid == uid
-                                || get(/databases/$(db)/documents/users/$(request.auth.uid)).data.systemRole == 'manager');
-
-      // Read: owner, supervisor, manager
-      allow read: if isOwner() || isSupervisor() || isManager();
-
-      // Create: owner (submit) or manager (backfill)
-      allow create: if isOwner() || isManager();
-
-      // Update:
-      // - owners can change only non-authoritative fields and must NOT set status to 'verified'
-      // - managers can verify/reject/edit expiry, etc.
-      allow update: if
-        (isOwner() && request.resource.data.status != "verified")
-        || isManager();
-
-      // Delete: managers only
-      allow delete: if isManager();
-    }
-
-
-    // User-scoped docs
+    // ===== Users root (profile) =====
     match /users/{uid} {
-      // Owner may read/write their own profile doc
-      allow read, write: if isAuthed() && request.auth.uid == uid;
+      // Owner, supervisors, and managers can read user profiles
+      allow read: if isOwner(uid) || isSupervisor() || isManager();
 
-      // Role-level summary (owner-owned)
+      // Owner can create their own profile (AuthContext.ensureUserProfile)
+      allow create: if isOwner(uid);
+
+      // Owner can update their own profile but cannot escalate systemRole
+      allow update: if isOwner(uid) &&
+                    (request.resource.data.systemRole == resource.data.systemRole);
+
+      // Managers can update/delete any user document (e.g., assign roles/permissions)
+      allow update, delete: if isManager();
+
+      // ===== Per-role progress =====
       match /progress/{roleId} {
-        allow read, write: if isAuthed() && request.auth.uid == uid;
-        // Volunteer may create their own progress doc
-        allow create: if request.auth != null && request.auth.uid == uid;
+        // Visibility
+        allow read: if isOwner(uid) || isSupervisor() || isManager();
 
-        // Volunteer may update ONLY top-level "steps" (flip pending ↔ in-progress)
-        // - We scope changes to the top-level key to avoid privilege escalation.
-        // - Managers keep any broader update power you already have elsewhere.
-        allow update: if request.auth != null
-                      && request.auth.uid == uid
-                      && request.resource.data.diff(resource.data).changedKeys().hasOnly(['steps']);
+        // Owner may create their progress doc and update ONLY the top-level "steps" map.
+        // Managers may update anything (e.g., set to "completed").
+        allow create: if isOwner(uid);
+        allow update: if (isOwner(uid) &&
+                          request.resource.data.diff(resource.data).changedKeys().hasOnly(['steps']))
+                       || isManager();
+        // Deleting an entire progress doc: managers only
+        allow delete: if isManager();
 
-        // Step-level entries (queried by collectionGroup "entries")
+        // Per-step submission entries (review queue)
         match /entries/{stepId} {
-          function isOwner() { return isAuthed() && request.auth.uid == uid; }
-          function canView() { return isOwner() || isSupervisor() || isManager(); }
-          function canEdit() { return isManager(); }
-					allow update: if request.auth != null
-              && request.auth.uid == uid
-              && request.resource.data.keys().hasOnly(['status'])
-              && request.resource.data.status in ['submitted','pending'];
-          // Volunteer can SUBMIT by creating their own entry
-          allow create: if request.auth != null && request.auth.uid == uid;
+          // Visibility for owner/supervisor/manager
+          allow read: if isOwner(uid) || isSupervisor() || isManager();
 
-          // Volunteer can WITHDRAW by deleting their own entry
-          allow delete: if request.auth != null && request.auth.uid == uid;
+          // Volunteer actions: submit (create) and withdraw (delete)
+          allow create: if isOwner(uid);
+          allow update: if isOwner(uid);
 
-          // Anyone with rights can read (owner, supervisor, manager)
-          allow read: if canView();
-
-          // Volunteers (owners) create/submit their own; Managers can also create (e.g., backfill)
-          allow create: if isOwner() || isManager();
-
-          // Only managers can update/approve/edit entries. Owners cannot directly set approved statuses.
-          allow update: if canEdit();
-
-          // Deletion: managers only (generally avoid deletes)
-          allow delete: if isManager();
+          // Manager actions: approve / request changes via updates
+          allow update: if isManager();
         }
       }
+
+      // Reusable credentials for shareable steps (CRC, etc.)
+      match /credentials/{credId} {
+        // Owner, supervisor, manager can read
+        allow read: if isOwner(uid) || isSupervisor() || isManager();
+        // Owner can create/update their own credential; managers can also update (e.g., verify)
+        allow create, update: if isOwner(uid) || isManager();
+      }
+    }
+
+    // ===== Catalog =====
+    match /roles/{roleId} {
+      // Any signed-in user can read roles
+      allow read: if isAuthed();
+      // Managers manage catalog
+      allow create, update, delete: if isManager();
+    }
+
+    match /steps/{stepId} {
+      // Any signed-in user can read step definitions
+      allow read: if isAuthed();
+      // Managers manage steps
+      allow create, update, delete: if isManager();
     }
   }
 }

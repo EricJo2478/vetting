@@ -4,6 +4,7 @@ import { Link } from "react-router-dom";
 import { getRoles } from "../services/roleService";
 import { LinkContainer } from "react-router-bootstrap";
 import { useAuth } from "../hooks/useAuth";
+import Markdown from "../components/common/Markdown";
 
 interface RoleDoc {
   id: string;
@@ -48,8 +49,8 @@ export default function RolesCatalog() {
               <Card.Body>
                 <Card.Title>{role.name}</Card.Title>
                 {role.description && (
-                  <Card.Text className="text-muted">
-                    {role.description}
+                  <Card.Text as="div" className="text-muted">
+                    <Markdown>{role.description}</Markdown>
                   </Card.Text>
                 )}
                 <div className="mt-3">

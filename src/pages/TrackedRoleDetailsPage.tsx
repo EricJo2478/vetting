@@ -276,7 +276,7 @@ export default function TrackedRoleDetailsPage() {
                                   onClick={() => handleToggleInProgress(s.id)}
                                 >
                                   {ps === "in-progress"
-                                    ? "Set Pending"
+                                    ? "Withdraw Step"
                                     : "Start"}
                                 </Button>
                               )}

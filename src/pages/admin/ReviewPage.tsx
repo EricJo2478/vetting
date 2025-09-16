@@ -1,5 +1,5 @@
 // src/pages/ReviewPage.tsx
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Card,
   Table,
@@ -11,26 +11,18 @@ import {
   Tooltip,
 } from "react-bootstrap";
 import { Link } from "react-router-dom";
-import { useAuth } from "../hooks/useAuth";
-import { usePermissions } from "../hooks/usePermissions";
-import { useApprovals } from "../hooks/useApprovals";
-import { approveEntry, returnToPending } from "../services/approvalService";
+import { useAuth } from "../../hooks/useAuth";
+import { usePermissions } from "../../hooks/usePermissions";
+import { ApprovalItem, useApprovals } from "../../hooks/useApprovals";
+import { approveEntry, returnToPending } from "../../services/approvalService";
+import { StepStatus } from "../../types/Progress";
+import { getUser } from "../../services/userService";
+import { RoleDoc } from "../../types/Role";
+import { StepDoc } from "../../types/Step";
+import { collection, onSnapshot } from "firebase/firestore";
+import { db } from "../../services/firebase";
 
 type ReviewStatus = "submitted" | "approved" | "changes_requested";
-type StepStatus = "pending" | "in-progress" | "completed";
-
-type QueueItem = {
-  id?: string;
-  userId: string;
-  userName?: string;
-  roleId: string;
-  roleName?: string;
-  stepId: string;
-  stepName?: string;
-  status: ReviewStatus;          // entry review status
-  progressStatus?: StepStatus;   // mirrored canonical progress (optional)
-  submittedAt?: number;
-};
 
 export default function ReviewPage() {
   const { user } = useAuth();
@@ -45,45 +37,114 @@ export default function ReviewPage() {
   // Per-row optional expiry date (manager-entered)
   const [expiresByKey, setExpiresByKey] = useState<Record<string, string>>({});
 
-  const filtered: QueueItem[] = useMemo(() => {
+  // 🔹 Lightweight caches for friendly names
+  const [userMap, setUserMap] = useState<
+    Record<string, { name?: string; displayName?: string; email?: string }>
+  >({});
+  const [roleMap, setRoleMap] = useState<Record<string, RoleDoc>>({});
+  const [stepMap, setStepMap] = useState<Record<string, StepDoc>>({});
+
+  // Subscribe once; supervisors/managers have read access per your rules
+  useEffect(() => {
+    const unUsers = onSnapshot(collection(db, "users"), (snap) => {
+      const m: Record<string, any> = {};
+      snap.forEach((d) => (m[d.id] = d.data()));
+      setUserMap(m);
+    });
+    const unRoles = onSnapshot(collection(db, "roles"), (snap) => {
+      const m: Record<string, RoleDoc> = {};
+      snap.forEach((d) => (m[d.id] = { id: d.id, ...(d.data() as any) }));
+      setRoleMap(m);
+    });
+    const unSteps = onSnapshot(collection(db, "steps"), (snap) => {
+      const m: Record<string, StepDoc> = {};
+      snap.forEach((d) => (m[d.id] = { id: d.id, ...(d.data() as any) }));
+      setStepMap(m);
+    });
+    return () => {
+      unUsers();
+      unRoles();
+      unSteps();
+    };
+  }, []);
+
+  const filtered: ApprovalItem[] = useMemo(() => {
     const list = Array.isArray(items) ? items : [];
-    return statusFilter ? list.filter((it: any) => it.status === statusFilter) : list;
+    return statusFilter
+      ? list.filter((it: any) => it.status === statusFilter)
+      : list;
   }, [items, statusFilter]);
 
+  // Merge friendly names for display
+  type DisplayItem = ApprovalItem & {
+    userName?: string;
+    roleName?: string;
+    stepName?: string;
+  };
+  const rows: DisplayItem[] = useMemo(() => {
+    return filtered.map((it) => {
+      const u = userMap[it.userId] || {};
+      const r = roleMap[it.roleId];
+      const s = stepMap[it.stepId];
+      return {
+        ...it,
+        userName: u.name || u.displayName || u.email || it.userId,
+        roleName: r?.name || it.roleId,
+        stepName: s?.name || it.stepId,
+      };
+    });
+  }, [filtered, userMap, roleMap, stepMap]);
+
   // Chips
-  const renderProgressChip = (it: QueueItem) => {
+  const renderProgressChip = (it: ApprovalItem) => {
     const s: StepStatus =
-      it.progressStatus ?? (it.status === "approved" ? "completed" : "in-progress");
+      it.progressStatus ??
+      (it.status === "approved" ? "completed" : "in-progress");
     if (s === "completed") return <Badge bg="success">Completed</Badge>;
-    if (s === "in-progress") return <Badge bg="warning" text="dark">In-progress</Badge>;
+    if (s === "in-progress")
+      return (
+        <Badge bg="warning" text="dark">
+          In-progress
+        </Badge>
+      );
     return <Badge bg="secondary">Pending</Badge>;
   };
 
   const renderReviewChip = (s: ReviewStatus) => {
     if (s === "approved") return <Badge bg="success">Approved</Badge>;
-    if (s === "changes_requested") return <Badge bg="danger">Changes requested</Badge>;
+    if (s === "changes_requested")
+      return <Badge bg="danger">Changes requested</Badge>;
     return <Badge bg="info">Submitted</Badge>;
   };
 
   // Actions
-  const onApprove = async (it: QueueItem) => {
+  const onApprove = async (it: ApprovalItem) => {
     if (!isManager) return;
     const key = `${it.userId}:${it.roleId}:${it.stepId}`;
     setBusyId(key);
     try {
       const expiresAt = (expiresByKey[key] || "").trim() || undefined; // optional
-      await approveEntry({ userId: it.userId, roleId: it.roleId, stepId: it.stepId, expiresAt });
+      await approveEntry({
+        userId: it.userId,
+        roleId: it.roleId,
+        stepId: it.stepId,
+        expiresAt,
+      });
     } finally {
       setBusyId(null);
     }
   };
 
-  const onReturnToPending = async (it: QueueItem) => {
+  const onReturnToPending = async (it: ApprovalItem) => {
     if (!isManager) return;
     const key = `${it.userId}:${it.roleId}:${it.stepId}`;
     setBusyId(key);
     try {
-      await returnToPending({ userId: it.userId, roleId: it.roleId, stepId: it.stepId });
+      await returnToPending({
+        userId: it.userId,
+        roleId: it.roleId,
+        stepId: it.stepId,
+      });
     } finally {
       setBusyId(null);
     }
@@ -131,16 +192,28 @@ export default function ReviewPage() {
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((it) => {
+                {rows.map((it) => {
                   const key = `${it.userId}:${it.roleId}:${it.stepId}`;
                   const disabled = busyId === key;
 
                   return (
                     <tr key={key}>
-                      <td><Link to={`/users/${it.userId}`}>{it.userName || it.userId}</Link></td>
-                      <td><Link to={`/roles/${it.roleId}`}>{it.roleName || it.roleId}</Link></td>
+                      <td>
+                        <Link to={`/users/${it.userId}`}>
+                          {it.userName || it.userId}
+                        </Link>
+                      </td>
+                      <td>
+                        <Link to={`/roles/${it.roleId}`}>
+                          {it.roleName || it.roleId}
+                        </Link>
+                      </td>
                       <td>{it.stepName || it.stepId}</td>
-                      <td>{it.submittedAt ? new Date(it.submittedAt).toLocaleString() : "—"}</td>
+                      <td>
+                        {it.submittedAt
+                          ? new Date(it.submittedAt).toLocaleString()
+                          : "—"}
+                      </td>
                       <td>
                         <div className="d-flex gap-2">
                           {renderProgressChip(it)}
@@ -169,9 +242,11 @@ export default function ReviewPage() {
                               disabled={disabled || it.status === "approved"}
                               onClick={() => onApprove(it)}
                             >
-                              {disabled && it.status !== "approved"
-                                ? <Spinner size="sm" animation="border" />
-                                : "Approve"}
+                              {disabled && it.status !== "approved" ? (
+                                <Spinner size="sm" animation="border" />
+                              ) : (
+                                "Approve"
+                              )}
                             </Button>
                             <Button
                               size="sm"
@@ -179,15 +254,21 @@ export default function ReviewPage() {
                               disabled={disabled}
                               onClick={() => onReturnToPending(it)}
                             >
-                              {disabled
-                                ? <Spinner size="sm" animation="border" />
-                                : "Return to Pending"}
+                              {disabled ? (
+                                <Spinner size="sm" animation="border" />
+                              ) : (
+                                "Return to Pending"
+                              )}
                             </Button>
                           </div>
                         ) : (
                           <OverlayTrigger
                             placement="top"
-                            overlay={<Tooltip id={`tt-${key}`}>Supervisors have view-only access</Tooltip>}
+                            overlay={
+                              <Tooltip id={`tt-${key}`}>
+                                Supervisors have view-only access
+                              </Tooltip>
+                            }
                           >
                             <div className="text-muted">No actions</div>
                           </OverlayTrigger>

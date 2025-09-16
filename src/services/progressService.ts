@@ -126,15 +126,6 @@ export async function updateStepProgress(
     await setDoc(
       progressRef,
       {
-        [`steps.${step.id}`]: stripUndef({
-          status: safeProgress.status,
-        }),
-      },
-      { merge: true }
-    );
-    await setDoc(
-      progressRef,
-      {
         // delete fields in a separate update
         [`steps.${step.id}.completedAt`]: deleteField(),
         [`steps.${step.id}.expiresAt`]: deleteField(),

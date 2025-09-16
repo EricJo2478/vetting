@@ -6,7 +6,7 @@ import { usePermissions } from "../../hooks/usePermissions";
 
 export default function NavBar() {
   const { user, logout } = useAuth();
-  const { canReview, isManager } = usePermissions();
+  const { canReview, canManage } = usePermissions();
 
   // Determine if roles link should be active (catalog or roles pages)
   const { pathname } = useLocation();
@@ -43,13 +43,23 @@ export default function NavBar() {
               </LinkContainer>
             )}
             {canReview && (
+              <LinkContainer to="/progress">
+                <Nav.Link>Progress</Nav.Link>
+              </LinkContainer>
+            )}
+            {canManage && (
               <LinkContainer to="/review">
                 <Nav.Link>Review</Nav.Link>
               </LinkContainer>
             )}
-            {isManager && (
+            {canManage && (
               <LinkContainer to="/admin/roles/new">
                 <Nav.Link>New Role</Nav.Link>
+              </LinkContainer>
+            )}
+            {canManage && (
+              <LinkContainer to="/legacy">
+                <Nav.Link>Legacy</Nav.Link>
               </LinkContainer>
             )}
           </Nav>
