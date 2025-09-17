@@ -7,5 +7,5 @@ export default defineConfig({
   build: {
     outDir: "docs", // This is the default, but you can change it to 'build', 'output', etc.
   },
-  base: "./",
+  base: "/",
 });

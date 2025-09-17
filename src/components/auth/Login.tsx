@@ -12,6 +12,7 @@ import {
   resetPassword,
 } from "../../services/authService";
 import { iso } from "../../utils";
+import { useNavigate } from "react-router-dom";
 // import { useNavigate } from "react-router-dom";
 
 function isInAppBrowserUA() {
@@ -25,7 +26,7 @@ function isInAppBrowserUA() {
 export default function Login() {
   const { showNotification } = useToast();
   const { user } = useAuth();
-  // const navigate = useNavigate();
+  const navigate = useNavigate();
 
   const [busy, setBusy] = useState(false);
   const [redirectHandled, setRedirectHandled] = useState(false);
@@ -45,7 +46,7 @@ export default function Login() {
         const res = await handleGoogleRedirectResult();
         if (res?.user) {
           showNotification?.(`Welcome ${res.user.email ?? ""}`, "success");
-          // navigate("/roles", { replace: true });
+          navigate("/roles", { replace: true });
         }
       } catch (err: any) {
         const msg = err?.friendly || explainAuthError(err);
@@ -57,6 +58,9 @@ export default function Login() {
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+  useEffect(() => {
+    if (user && redirectHandled) navigate("/roles", { replace: true });
+  }, [user, redirectHandled, navigate]);
 
   const onGoogleClick = async () => {
     setBusy(true);
@@ -64,7 +68,7 @@ export default function Login() {
       const cred = await loginWithGoogleSmart();
       if (cred?.user) {
         showNotification?.(`Welcome ${cred.user.email ?? ""}`, "success");
-        // navigate("/roles", { replace: true });
+        navigate("/roles", { replace: true });
       }
     } catch (err: any) {
       const msg = err?.friendly || explainAuthError(err);
@@ -97,6 +101,7 @@ export default function Login() {
       if (mode === "signin") {
         const cred = await loginWithEmail(email.trim(), password);
         showNotification?.(`Welcome ${cred.user.email ?? ""}`, "success");
+        navigate("/roles", { replace: true });
       } else {
         // ⬇️ pass profile data to Firestore creator
         const profileData = {
@@ -111,6 +116,7 @@ export default function Login() {
           `Account created: ${cred.user.email ?? ""}`,
           "success"
         );
+        navigate("/roles", { replace: true });
       }
       // navigate("/roles", { replace: true });
     } catch (err: any) {
