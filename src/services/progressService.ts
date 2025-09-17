@@ -1,8 +1,10 @@
 // src/services/progressService.ts
 import {
+  arrayUnion,
   deleteField,
   doc,
   getDoc,
+  serverTimestamp,
   setDoc,
   writeBatch,
 } from "firebase/firestore";
@@ -12,6 +14,7 @@ import { RoleDoc } from "../types/Role";
 import { StepDoc } from "../types/Step";
 
 function isValid(cred: any) {
+  console.log(cred);
   const ok = cred?.status === "verified";
   const notExpired = !cred?.expiresAt || cred.expiresAt > Date.now();
   return ok && notExpired;
@@ -30,11 +33,17 @@ export async function getProgress(
   return snap.exists() ? (snap.data() as ProgressDoc) : null;
 }
 
+// Helper
+function isCredentialValid(cred: any): boolean {
+  const s = cred?.status;
+  return s === "verified" || s === "approved";
+}
+
 export async function updateStepProgress(
   uid: string,
   roleId: string,
   step: StepDoc,
-  progress: StepProgress
+  next: StepProgress // { status: "pending" | "in-progress" | "completed" }
 ) {
   const progressRef = doc(db, "users", uid, "progress", roleId);
   const entryRef = doc(
@@ -47,65 +56,70 @@ export async function updateStepProgress(
     step.id
   );
 
-  // sanitize the nested progress payload
-  const safeProgress = stripUndef(progress);
-
-  // ---- SHAREABLE (credential-backed) STEP ----
+  // SHAREABLE
   if (step.shareable && step.templateId) {
     const credRef = doc(db, "users", uid, "credentials", step.templateId);
     const credSnap = await getDoc(credRef);
-    const credential = credSnap.data();
-    const alreadyValid = isValid(credential); // your existing helper
+    const cred = credSnap.data();
+    const alreadyValid = isCredentialValid(cred);
 
-    const entryStatus =
-      alreadyValid && step.autoApproveIfVerified ? "approved" : "submitted";
+    const shouldAutoComplete =
+      alreadyValid && step.autoApproveIfVerified !== false;
+    const finalStatus: StepProgress["status"] = shouldAutoComplete
+      ? "completed"
+      : next.status;
+
+    const entryReviewStatus = shouldAutoComplete ? "approved" : "submitted";
 
     const batch = writeBatch(db);
 
-    // 1) write/merge the per-role progress map WITHOUT undefineds
+    // canonical progress
     batch.set(
       progressRef,
-      { steps: { [step.id]: safeProgress } },
+      {
+        steps: {
+          [step.id]: {
+            status: finalStatus,
+            ...(finalStatus === "completed" ? { completedAt: Date.now() } : {}),
+          },
+        },
+      },
       { merge: true }
     );
 
-    // 2) if reverting to pending, remove date fields explicitly
-    if (safeProgress.status !== "completed") {
-      batch.update(progressRef, {
-        [`steps.${step.id}.completedAt`]: deleteField(),
-        [`steps.${step.id}.expiresAt`]: deleteField(),
-      });
-    }
+    // entry (🔸 now mirrors the progress in progressStatus)
+    batch.set(
+      entryRef,
+      {
+        userId: uid,
+        roleId,
+        stepId: step.id,
+        templateId: step.templateId,
+        status: entryReviewStatus, // review: submitted | approved | changes_requested
+        progressStatus: finalStatus, // progress: pending | in-progress | completed  ← NEW
+        submittedAt: Date.now(),
+        satisfiedByCredential: alreadyValid,
+      },
+      { merge: true }
+    );
 
-    // 3) create/update the review entry ONLY when completed
-    if (safeProgress.status === "completed") {
-      batch.set(
-        entryRef,
-        stripUndef({
-          userId: uid,
-          roleId,
-          stepId: step.id,
-          templateId: step.templateId, // omitted if undefined
-          status: entryStatus,
-          submittedAt: Date.now(),
-          satisfiedByCredential: alreadyValid,
-          approvedAt: entryStatus === "approved" ? Date.now() : undefined,
-        }),
-        { merge: true }
-      );
-    }
-
-    // 4) bootstrap a credential if it doesn't exist yet
     if (!credSnap.exists()) {
       batch.set(
         credRef,
-        stripUndef({
+        {
           id: step.templateId,
           templateId: step.templateId,
           status: "submitted",
-          updatedAt: Date.now(),
+          updatedAt: serverTimestamp(),
           sourceRoleIds: [roleId],
-        })
+        },
+        { merge: true }
+      );
+    } else {
+      batch.set(
+        credRef,
+        { updatedAt: serverTimestamp(), sourceRoleIds: arrayUnion(roleId) },
+        { merge: true }
       );
     }
 
@@ -113,41 +127,20 @@ export async function updateStepProgress(
     return;
   }
 
-  // ---- NON-SHAREABLE STEP ----
-  // 1) write/merge the per-role progress map WITHOUT undefineds
+  // NON-SHAREABLE
+  await setDoc(progressRef, { steps: { [step.id]: next } }, { merge: true });
   await setDoc(
-    progressRef,
-    { steps: { [step.id]: safeProgress } },
+    entryRef,
+    {
+      userId: uid,
+      roleId,
+      stepId: step.id,
+      status: next.status === "completed" ? "approved" : "submitted",
+      progressStatus: next.status, // ← NEW
+      submittedAt: Date.now(),
+    },
     { merge: true }
   );
-
-  // 2) if reverting to pending, remove date fields explicitly
-  if (safeProgress.status !== "completed") {
-    await setDoc(
-      progressRef,
-      {
-        // delete fields in a separate update
-        [`steps.${step.id}.completedAt`]: deleteField(),
-        [`steps.${step.id}.expiresAt`]: deleteField(),
-      } as any,
-      { merge: true }
-    );
-  }
-
-  // 3) create/update the review entry ONLY when completed
-  if (safeProgress.status === "completed") {
-    await setDoc(
-      entryRef,
-      {
-        userId: uid,
-        roleId,
-        stepId: step.id,
-        status: "submitted",
-        submittedAt: Date.now(),
-      },
-      { merge: true }
-    );
-  }
 }
 
 /** Helper: compute counts from a raw progress doc and the role's step list */

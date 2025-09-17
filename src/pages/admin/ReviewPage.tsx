@@ -123,12 +123,21 @@ export default function ReviewPage() {
     const key = `${it.userId}:${it.roleId}:${it.stepId}`;
     setBusyId(key);
     try {
-      const expiresAt = (expiresByKey[key] || "").trim() || undefined; // optional
+      const expiresAt = (expiresByKey[key] || "").trim() || undefined; // optional manager-entered date
+
+      // 🔸 Look up the step to get shareable + templateId
+      const step = stepMap[it.stepId];
+      const shareable = !!step?.shareable;
+      const templateId = step?.templateId as string | undefined;
+
       await approveEntry({
         userId: it.userId,
         roleId: it.roleId,
         stepId: it.stepId,
-        expiresAt,
+        expiresAt, // optional
+        shareable, // NEW
+        templateId, // NEW
+        propagate: true, // NEW: auto-complete same template in other roles
       });
     } finally {
       setBusyId(null);

@@ -1,7 +1,12 @@
 // src/components/admin/StepEditor.tsx
 import { useEffect, useMemo, useState } from "react";
 import { Button, Card, Form, Table } from "react-bootstrap";
-import { addStep, deleteStep, getStepsByRole, updateStep } from "../../services/roleService";
+import {
+  addStep,
+  deleteStep,
+  getStepsByRole,
+  updateStep,
+} from "../../services/roleService";
 import { StepDoc } from "../../types/Step";
 import MarkdownEditor from "../common/MarkdownEditor";
 
@@ -17,7 +22,7 @@ export default function StepEditor({ roleId }: { roleId: string }) {
     requiresApproval: false,
     shareable: false,
     templateId: "",
-    autoApproveIfVerified: false,
+    autoApproveIfVerified: true,
     roleId,
   });
 
@@ -32,7 +37,9 @@ export default function StepEditor({ roleId }: { roleId: string }) {
         if (!cancelled) setLoading(false);
       }
     })();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [roleId]);
 
   const nextOrder = useMemo(() => {
@@ -57,7 +64,9 @@ export default function StepEditor({ roleId }: { roleId: string }) {
         order: Number(s.order ?? 0),
         requiresApproval: !!s.requiresApproval,
         shareable: !!s.shareable,
-        templateId: s.shareable ? (s.templateId || "").trim() || "shared" : undefined,
+        templateId: s.shareable
+          ? (s.templateId || "").trim() || "shared"
+          : undefined,
         autoApproveIfVerified: !!s.autoApproveIfVerified,
       });
       await updateStep(s.id, payload as any);
@@ -85,7 +94,9 @@ export default function StepEditor({ roleId }: { roleId: string }) {
         order: Number(form.order ?? nextOrder),
         requiresApproval: !!form.requiresApproval,
         shareable: !!form.shareable,
-        templateId: form.shareable ? (form.templateId || "").trim() || "shared" : undefined,
+        templateId: form.shareable
+          ? (form.templateId || "").trim() || "shared"
+          : undefined,
         autoApproveIfVerified: !!form.autoApproveIfVerified,
         roleId,
       });
@@ -99,7 +110,7 @@ export default function StepEditor({ roleId }: { roleId: string }) {
         requiresApproval: false,
         shareable: false,
         templateId: "",
-        autoApproveIfVerified: false,
+        autoApproveIfVerified: true,
         roleId,
       });
     } finally {
@@ -112,7 +123,9 @@ export default function StepEditor({ roleId }: { roleId: string }) {
       <Card.Header className="d-flex justify-content-between align-items-center">
         <div>
           <div className="fw-semibold">Steps</div>
-          <div className="text-muted small">Use Markdown in descriptions for clear, scannable instructions.</div>
+          <div className="text-muted small">
+            Use Markdown in descriptions for clear, scannable instructions.
+          </div>
         </div>
       </Card.Header>
       <Card.Body className="p-0">
@@ -125,7 +138,9 @@ export default function StepEditor({ roleId }: { roleId: string }) {
               <th style={{ width: 160 }}>Requires approval</th>
               <th style={{ width: 120 }}>Shareable</th>
               <th style={{ width: 160 }}>Template ID</th>
-              <th style={{ width: 200 }} className="text-end">Actions</th>
+              <th style={{ width: 200 }} className="text-end">
+                Actions
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -136,14 +151,18 @@ export default function StepEditor({ roleId }: { roleId: string }) {
                     size="sm"
                     type="number"
                     value={s.order ?? 0}
-                    onChange={(e) => onRowChange(s.id, { order: Number(e.target.value) })}
+                    onChange={(e) =>
+                      onRowChange(s.id, { order: Number(e.target.value) })
+                    }
                   />
                 </td>
                 <td>
                   <Form.Control
                     size="sm"
                     value={s.name ?? ""}
-                    onChange={(e) => onRowChange(s.id, { name: e.target.value })}
+                    onChange={(e) =>
+                      onRowChange(s.id, { name: e.target.value })
+                    }
                     placeholder="Step title"
                   />
                 </td>
@@ -160,7 +179,9 @@ export default function StepEditor({ roleId }: { roleId: string }) {
                   <Form.Check
                     type="switch"
                     checked={!!s.requiresApproval}
-                    onChange={(e) => onRowChange(s.id, { requiresApproval: e.target.checked })}
+                    onChange={(e) =>
+                      onRowChange(s.id, { requiresApproval: e.target.checked })
+                    }
                     label=""
                   />
                 </td>
@@ -168,7 +189,9 @@ export default function StepEditor({ roleId }: { roleId: string }) {
                   <Form.Check
                     type="switch"
                     checked={!!s.shareable}
-                    onChange={(e) => onRowChange(s.id, { shareable: e.target.checked })}
+                    onChange={(e) =>
+                      onRowChange(s.id, { shareable: e.target.checked })
+                    }
                     label=""
                   />
                 </td>
@@ -176,7 +199,9 @@ export default function StepEditor({ roleId }: { roleId: string }) {
                   <Form.Control
                     size="sm"
                     value={s.templateId ?? ""}
-                    onChange={(e) => onRowChange(s.id, { templateId: e.target.value })}
+                    onChange={(e) =>
+                      onRowChange(s.id, { templateId: e.target.value })
+                    }
                     placeholder="crc, food-safety, etc."
                     disabled={!s.shareable}
                   />
@@ -211,7 +236,9 @@ export default function StepEditor({ roleId }: { roleId: string }) {
                   size="sm"
                   type="number"
                   value={form.order ?? nextOrder}
-                  onChange={(e) => setForm({ ...form, order: Number(e.target.value) })}
+                  onChange={(e) =>
+                    setForm({ ...form, order: Number(e.target.value) })
+                  }
                 />
               </td>
               <td>
@@ -235,7 +262,9 @@ export default function StepEditor({ roleId }: { roleId: string }) {
                 <Form.Check
                   type="switch"
                   checked={!!form.requiresApproval}
-                  onChange={(e) => setForm({ ...form, requiresApproval: e.target.checked })}
+                  onChange={(e) =>
+                    setForm({ ...form, requiresApproval: e.target.checked })
+                  }
                   label=""
                 />
               </td>
@@ -243,7 +272,9 @@ export default function StepEditor({ roleId }: { roleId: string }) {
                 <Form.Check
                   type="switch"
                   checked={!!form.shareable}
-                  onChange={(e) => setForm({ ...form, shareable: e.target.checked })}
+                  onChange={(e) =>
+                    setForm({ ...form, shareable: e.target.checked })
+                  }
                   label=""
                 />
               </td>
@@ -251,13 +282,20 @@ export default function StepEditor({ roleId }: { roleId: string }) {
                 <Form.Control
                   size="sm"
                   value={form.templateId ?? ""}
-                  onChange={(e) => setForm({ ...form, templateId: e.target.value })}
+                  onChange={(e) =>
+                    setForm({ ...form, templateId: e.target.value })
+                  }
                   placeholder="crc, food-safety, etc."
                   disabled={!form.shareable}
                 />
               </td>
               <td className="text-end">
-                <Button variant="primary" size="sm" onClick={add} disabled={adding}>
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={add}
+                  disabled={adding}
+                >
                   {adding ? "Adding..." : "Add step"}
                 </Button>
               </td>

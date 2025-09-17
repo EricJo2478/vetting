@@ -151,13 +151,12 @@ export default function TrackedRoleDetailsPage() {
         status: goingToInProgress ? "in-progress" : "pending",
       };
 
-      await updateStepProgress(user.uid, roleId, step, next);
-
       // If moving into in-progress, (re)submit an entry for manager review
       if (goingToInProgress) {
-        await submitEntry({ userId: user.uid, roleId, stepId });
+        await submitEntry({ userId: user.uid, roleId, step });
       } else {
-        await withdrawSubmission(user.uid, roleId, stepId);
+        await withdrawSubmission(user.uid, roleId, step.id); // should set entry.status = "withdrawn"
+        await updateStepProgress(user.uid, roleId, step, { status: "pending" }); // or fold this into withdrawSubmission
       }
     } catch (e) {
       console.error(e);
