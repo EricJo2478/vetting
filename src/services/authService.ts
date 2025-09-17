@@ -147,7 +147,9 @@ export async function loginWithGoogleSmart(): Promise<UserCredential | null> {
   }
 
   try {
-    return await signInWithPopup(auth, provider);
+    const cred = await signInWithPopup(auth, provider);
+    await ensureUserProfile(cred.user);
+    return cred;
   } catch (err) {
     (err as any).friendly = explainAuthError(err);
     throw err;
@@ -157,8 +159,9 @@ export async function loginWithGoogleSmart(): Promise<UserCredential | null> {
 /** Call once on load (e.g., Login page) to finalize a prior redirect login. */
 export async function handleGoogleRedirectResult(): Promise<UserCredential | null> {
   try {
-    const res = await getRedirectResult(auth);
-    return res; // null if there was no redirect
+    const cred = await getRedirectResult(auth);
+    if (cred) await ensureUserProfile(cred.user);
+    return cred; // null if there was no redirect
   } catch (err) {
     // surface to caller for toast/log
     throw err;
