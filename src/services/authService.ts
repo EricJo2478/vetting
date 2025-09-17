@@ -1,8 +1,11 @@
 // src/services/authService.ts
 import {
+  browserLocalPersistence,
   createUserWithEmailAndPassword,
+  getRedirectResult,
   GoogleAuthProvider,
   sendPasswordResetEmail,
+  setPersistence,
   signInWithEmailAndPassword,
   signInWithPopup,
   signInWithRedirect,
@@ -69,4 +72,55 @@ export async function handleRedirectResult(): Promise<UserCredential | null> {
 // Log out
 export async function logout(): Promise<void> {
   return await signOut(auth);
+} // src/services/authService.ts
+
+try {
+  setPersistence(auth, browserLocalPersistence);
+} catch {
+  // ignore if already set elsewhere
+}
+
+// Heuristics for environments where popups are blocked or flaky
+function isProbablyMobile() {
+  if (typeof navigator === "undefined") return false;
+  return (
+    /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) ||
+    (typeof window !== "undefined" && window.innerWidth < 768)
+  );
+}
+function isInAppBrowser() {
+  if (typeof navigator === "undefined") return false;
+  const ua = navigator.userAgent || "";
+  return /FBAN|FBAV|Instagram|Line|Twitter|Snapchat|TikTok|MiuiBrowser/i.test(
+    ua
+  );
+}
+
+/**
+ * Smart Google login:
+ *  - Desktop → popup
+ *  - Mobile / in-app browsers → redirect
+ * Returns a UserCredential on popup; returns null when redirect is initiated.
+ */
+export async function loginWithGoogleSmart(): Promise<UserCredential | null> {
+  const provider = new GoogleAuthProvider();
+
+  if (isProbablyMobile() || isInAppBrowser()) {
+    await signInWithRedirect(auth, provider);
+    return null; // browser navigates; result is handled later
+  }
+
+  // Desktop/regular browsers → popup
+  return await signInWithPopup(auth, provider);
+}
+
+/** Call once on load (e.g., Login page) to finalize a prior redirect login. */
+export async function handleGoogleRedirectResult(): Promise<UserCredential | null> {
+  try {
+    const res = await getRedirectResult(auth);
+    return res; // null if there was no redirect
+  } catch (err) {
+    // surface to caller for toast/log
+    throw err;
+  }
 }

@@ -14,6 +14,7 @@ import {
   XCircleFill,
 } from "react-bootstrap-icons";
 import {
+  handleGoogleRedirectResult,
   loginWithEmail,
   loginWithGooglePopup,
   resetPassword,
@@ -44,6 +45,24 @@ export default function Login() {
       navigate("/roles", { replace: true });
     }
   }, [authLoading, user, navigate]);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await handleGoogleRedirectResult();
+        if (res?.user) {
+          const email = res.user.email ?? "your account";
+          showNotification?.(`Google login successful: ${email}`, "success");
+          // Optionally navigate to your app's post-login page:
+          // navigate("/roles", { replace: true });
+        }
+      } catch (e) {
+        console.error("Google login (redirect) error:", e);
+        showNotification?.("Google login failed", "danger");
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // function to handle google login
   const handleGoogleLogin = async (): Promise<void> => {
