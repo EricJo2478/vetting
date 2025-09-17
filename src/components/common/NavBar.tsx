@@ -21,7 +21,7 @@ export default function NavBar() {
           <Navbar.Brand>
             <img
               alt=""
-              src="assets/logo.svg"
+              src="logo.svg"
               width="50"
               height="50"
               className="d-inline-block align-top me-4"

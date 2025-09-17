@@ -26,117 +26,114 @@ function PageLayout({ children }: { children: React.ReactNode }) {
 
 export default function App() {
   return (
-    <BrowserRouter>
-      {/* show NavBar on all routes except login */}
-      <Routes>
-        <Route path="/login" element={<Login />} />
+    <Routes>
+      <Route path="/login" element={<Login />} />
 
-        {/* Protected area */}
-        <Route
-          path="/roles"
-          element={
-            <AuthGuard>
-              <PageLayout>
-                <RolesDashboard />
-              </PageLayout>
-            </AuthGuard>
-          }
-        />
-        <Route
-          path="/admin/roles/new"
-          element={
-            <AuthGuard requireManager>
-              <PageLayout>
-                <RoleEditor />
-              </PageLayout>
-            </AuthGuard>
-          }
-        />
-        <Route
-          path="/admin/roles/:roleId/edit"
-          element={
-            <AuthGuard requireManager>
-              <PageLayout>
-                <RoleEditor />
-              </PageLayout>
-            </AuthGuard>
-          }
-        />
-        <Route
-          path="/legacy"
-          element={
-            <AuthGuard requireManager>
-              <PageLayout>
-                <LegacyImportPage />
-              </PageLayout>
-            </AuthGuard>
-          }
-        />
+      {/* Protected area */}
+      <Route
+        path="/roles"
+        element={
+          <AuthGuard>
+            <PageLayout>
+              <RolesDashboard />
+            </PageLayout>
+          </AuthGuard>
+        }
+      />
+      <Route
+        path="/admin/roles/new"
+        element={
+          <AuthGuard requireManager>
+            <PageLayout>
+              <RoleEditor />
+            </PageLayout>
+          </AuthGuard>
+        }
+      />
+      <Route
+        path="/admin/roles/:roleId/edit"
+        element={
+          <AuthGuard requireManager>
+            <PageLayout>
+              <RoleEditor />
+            </PageLayout>
+          </AuthGuard>
+        }
+      />
+      <Route
+        path="/legacy"
+        element={
+          <AuthGuard requireManager>
+            <PageLayout>
+              <LegacyImportPage />
+            </PageLayout>
+          </AuthGuard>
+        }
+      />
 
-        {/* Default: redirect root based on auth (simple version) */}
-        <Route
-          path="/"
-          element={
+      {/* Default: redirect root based on auth (simple version) */}
+      <Route
+        path="/"
+        element={
+          <PageLayout>
+            <Navigate to="/roles" replace />
+          </PageLayout>
+        }
+      />
+      <Route
+        path="*"
+        element={
+          <PageLayout>
+            <Navigate to="/" replace />
+          </PageLayout>
+        }
+      />
+      <Route
+        path="/catalog"
+        element={
+          <PageLayout>
+            <RolesCatalog />
+          </PageLayout>
+        }
+      />
+      <Route
+        path="/catalog/:roleId"
+        element={
+          <PageLayout>
+            <RoleDetailsPage />
+          </PageLayout>
+        }
+      />
+      <Route
+        path="/roles/:roleId"
+        element={
+          <AuthGuard>
             <PageLayout>
-              <Navigate to="/roles" replace />
+              <TrackedRoleDetailsPage />
             </PageLayout>
-          }
-        />
-        <Route
-          path="*"
-          element={
-            <PageLayout>
-              <Navigate to="/" replace />
-            </PageLayout>
-          }
-        />
-        <Route
-          path="/catalog"
-          element={
-            <PageLayout>
-              <RolesCatalog />
-            </PageLayout>
-          }
-        />
-        <Route
-          path="/catalog/:roleId"
-          element={
-            <PageLayout>
-              <RoleDetailsPage />
-            </PageLayout>
-          }
-        />
-        <Route
-          path="/roles/:roleId"
-          element={
-            <AuthGuard>
-              <PageLayout>
-                <TrackedRoleDetailsPage />
-              </PageLayout>
+          </AuthGuard>
+        }
+      />
+      <Route
+        path="/review"
+        element={
+          <PageLayout>
+            <AuthGuard requireManager>
+              <ReviewPage />
             </AuthGuard>
-          }
-        />
-        <Route
-          path="/review"
-          element={
-            <PageLayout>
-              <AuthGuard requireManager>
-                <ReviewPage />
-              </AuthGuard>
-            </PageLayout>
-          }
-        />
-        <Route
-          path="/progress"
-          element={
-            <PageLayout>
-              <AuthGuard requireSupervisor>
-                <TeamProgressPage />
-              </AuthGuard>
-            </PageLayout>
-          }
-        />
-      </Routes>
-    </BrowserRouter>
+          </PageLayout>
+        }
+      />
+      <Route
+        path="/progress"
+        element={
+          <PageLayout>
+            <AuthGuard requireSupervisor>
+              <TeamProgressPage />
+            </AuthGuard>
+          </PageLayout>
+        }
+      />
+    </Routes>
   );
 }
