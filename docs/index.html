@@ -2,11 +2,22 @@
 <html data-bs-theme="dark" lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="./vite.svg" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>CISV Saskatoon Vetting</title>
-    <script type="module" crossorigin src="./assets/index-B_4_bTxD.js"></script>
-    <link rel="stylesheet" crossorigin href="./assets/index-BmlznmAL.css">
+    <script>
+  (function () {
+    var params = new URLSearchParams(window.location.search);
+    var p = params.get("p");
+    if (p) {
+      // put the original deep link back into the address bar
+      window.history.replaceState({}, "", p);
+    }
+  })();
+</script>
+
+    <script type="module" crossorigin src="/assets/index-Df7TmIMu.js"></script>
+    <link rel="stylesheet" crossorigin href="/assets/index-BmlznmAL.css">
   </head>
   <body>
     <div id="root"></div>

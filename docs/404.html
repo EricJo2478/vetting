@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Redirecting…</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <!-- quick refresh for bots/older browsers -->
+  <meta http-equiv="refresh" content="0; url=./index.html?p=%2F" />
+  <script>
+    (function () {
+      var l = window.location;
+      // avoid loops:
+      if (l.search.indexOf('redirected=1') !== -1) return;
+      // Build “index.html?p=<fullPath>&redirected=1”
+      var p = l.pathname.replace(/^\/+/, '/') + l.search + l.hash;
+      var url = './index.html?p=' + encodeURIComponent(p) + '&redirected=1';
+      l.replace(url);
+    })();
+  </script>
+</head>
+<body>Redirecting…</body>
+</html>
