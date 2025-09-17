@@ -13,13 +13,18 @@ import {
 import { CheckCircleFill } from "react-bootstrap-icons";
 import { useAuth } from "../hooks/useAuth";
 import { useToast } from "../hooks/useToast";
-import { getRoles } from "../services/roleService";
+import {
+  autoApproveShareableStepsForRole,
+  getRoles,
+} from "../services/roleService";
 import { updateUser } from "../services/userService";
 import { LinkContainer } from "react-router-bootstrap";
 import { getProgressCountsForRoles } from "../services/progressService";
 import { RoleDoc } from "../types/Role";
 import { usePermissions } from "../hooks/usePermissions";
 import Markdown from "../components/common/Markdown";
+import { doc, getDoc, setDoc } from "firebase/firestore";
+import { db } from "../services/firebase";
 
 export default function RolesDashboard() {
   const { user, profile, loading: authLoading } = useAuth();
@@ -76,14 +81,46 @@ export default function RolesDashboard() {
     };
   }, [permsLoading, isManager, user?.uid, profile?.roleIds]);
 
-  // if role is in selected delete; else add
-  const toggleRole = (roleId: string) => {
+  const [busyRoleId, setBusyRoleId] = useState<string | null>(null);
+
+  // if role is in selected delete; else add (and auto-approve when adding)
+  const toggleRole = async (roleId: string) => {
+    // compute once before setState so we know if we're adding
+    const isAdding = !selected.has(roleId);
+
+    // update UI selection immediately
     setSelected((prev) => {
       const next = new Set(prev);
-      if (next.has(roleId)) next.delete(roleId);
-      else next.add(roleId);
+      if (isAdding) next.add(roleId);
+      else next.delete(roleId);
       return next;
     });
+
+    // only run auto-approve when adding, and only if signed in
+    if (!isAdding || !user) return;
+
+    setBusyRoleId(roleId);
+    try {
+      // ensure the per-role progress doc exists (idempotent)
+      const progressRef = doc(db, "users", user.uid, "progress", roleId);
+      const exists = (await getDoc(progressRef)).exists();
+      if (!exists) {
+        await setDoc(progressRef, { createdAt: Date.now() }, { merge: true });
+      }
+
+      // sweep the role's steps and auto-complete any shareable + verified ones
+      await autoApproveShareableStepsForRole(user.uid, roleId);
+
+      showNotification?.(
+        "Auto-approved matching steps for this role.",
+        "success"
+      );
+    } catch (e) {
+      console.error("Auto-approve on role add failed:", e);
+      showNotification?.("Couldn’t auto-approve matching steps.", "danger");
+    } finally {
+      setBusyRoleId(null);
+    }
   };
 
   const isDirty = useMemo(() => {

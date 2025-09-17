@@ -14,10 +14,13 @@ import {
   increment,
   arrayUnion,
   runTransaction,
+  writeBatch,
+  serverTimestamp,
 } from "firebase/firestore";
 import { db } from "./firebase";
 import { RoleDoc } from "../types/Role";
 import { StepDoc } from "../types/Step";
+import { getStepsByIds } from "./stepService";
 
 export async function getRoles(publishedOnly?: boolean): Promise<RoleDoc[]> {
   const col = collection(db, "roles");
@@ -124,4 +127,109 @@ export async function getStepsByRole(roleId: string): Promise<StepDoc[]> {
     id: d.id,
     ...(d.data() as any),
   })) as StepDoc[];
+}
+
+function isCredentialValid(cred: any): boolean {
+  const s = cred?.status;
+  return s === "verified" || s === "approved";
+}
+
+/**
+ * Auto-approve shareable steps for a role the moment the user selects that role.
+ * - Only affects steps with shareable=true and a verified/approved credential for step.templateId
+ * - Writes:
+ *    progress.steps[stepId].status = "completed"
+ *    entries/{stepId}.status = "approved", progressStatus = "completed"
+ *    users/{uid}/credentials/{templateId}.sourceRoleIds += roleId
+ */
+export async function autoApproveShareableStepsForRole(
+  uid: string,
+  roleId: string
+) {
+  // 1) Load role + steps
+  const role = await getRole(roleId);
+  if (!role) return;
+
+  const stepIds: string[] = Array.isArray(role.steps) ? role.steps : [];
+  if (!stepIds.length) return;
+
+  const steps = await getStepsByIds(stepIds);
+  if (!steps.length) return;
+
+  // 2) Load all user credentials into a map
+  const credsSnap = await getDocs(collection(db, "users", uid, "credentials"));
+  const credMap = new Map<string, any>();
+  credsSnap.forEach((d) => credMap.set(d.id, d.data()));
+
+  // 3) Build writes for verified shareable steps
+  const progressRef = doc(db, "users", uid, "progress", roleId);
+  const batch = writeBatch(db);
+  let wroteSomething = false;
+
+  for (const step of steps) {
+    if (!step?.id) continue;
+
+    const shareable = !!step.shareable;
+    const templateId = step?.templateId as string | undefined;
+    const autoEnabled = step?.autoApproveIfVerified !== false; // default true
+
+    if (!shareable || !templateId || !autoEnabled) continue;
+
+    const cred = credMap.get(templateId);
+    if (!isCredentialValid(cred)) continue;
+
+    // progress -> completed
+    batch.set(
+      progressRef,
+      {
+        steps: { [step.id]: { status: "completed", completedAt: Date.now() } },
+      },
+      { merge: true }
+    );
+
+    // entry -> approved + progressStatus mirror
+    const entryRef = doc(
+      db,
+      "users",
+      uid,
+      "progress",
+      roleId,
+      "entries",
+      step.id
+    );
+    batch.set(
+      entryRef,
+      {
+        userId: uid,
+        roleId,
+        stepId: step.id,
+        templateId,
+        status: "approved",
+        progressStatus: "completed",
+        approvedAt: Date.now(),
+        satisfiedByCredential: true,
+      },
+      { merge: true }
+    );
+
+    // credential -> track provenance
+    const credRef = doc(db, "users", uid, "credentials", templateId);
+    batch.set(
+      credRef,
+      {
+        id: templateId,
+        templateId,
+        status: cred?.status ?? "verified", // keep verified
+        updatedAt: serverTimestamp(),
+        sourceRoleIds: arrayUnion(roleId),
+      },
+      { merge: true }
+    );
+
+    wroteSomething = true;
+  }
+
+  if (wroteSomething) {
+    await batch.commit();
+  }
 }
