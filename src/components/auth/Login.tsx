@@ -1,246 +1,115 @@
-import { useState, FormEvent, useEffect } from "react";
-import {
-  Button,
-  Card,
-  Form,
-  Spinner,
-  Toast,
-  ToastContainer,
-} from "react-bootstrap";
-import {
-  Google,
-  CheckCircleFill,
-  ExclamationTriangleFill,
-  XCircleFill,
-} from "react-bootstrap-icons";
+// src/pages/auth/Login.tsx
+import { useEffect, useMemo, useState } from "react";
+import { Card, Button, Spinner, Alert } from "react-bootstrap";
+import { useToast } from "../../hooks/useToast";
+import { useAuth } from "../../hooks/useAuth";
 import {
   handleGoogleRedirectResult,
-  loginWithEmail,
-  loginWithGooglePopup,
-  resetPassword,
-  signupWithEmail,
+  loginWithGoogleSmart,
+  explainAuthError,
 } from "../../services/authService";
-import { useAuth } from "../../hooks/useAuth";
-import { useToast } from "../../hooks/useToast";
-import { useNavigate } from "react-router-dom";
+// import { useNavigate } from "react-router-dom"; // optional
+
+function isInAppBrowserUA() {
+  if (typeof navigator === "undefined") return false;
+  const ua = navigator.userAgent || "";
+  return /FBAN|FBAV|Instagram|Line|Twitter|Snapchat|TikTok|MiuiBrowser|WeChat|LinkedInApp/i.test(
+    ua
+  );
+}
 
 export default function Login() {
-  const [loading, setLoading] = useState<boolean>(false); // tracks if the login is in process
-  const [email, setEmail] = useState<string>(""); // tracks the email value in form
-  const [password, setPassword] = useState<string>(""); // tracks the password value in form
-  const [isRegister, setIsRegister] = useState<boolean>(false);
+  const { showNotification } = useToast();
+  const { user } = useAuth();
+  const [busy, setBusy] = useState(false);
+  const [redirectHandled, setRedirectHandled] = useState(false);
+  // const navigate = useNavigate();
 
-  const navigate = useNavigate();
-  const { user, loading: authLoading } = useAuth();
-  const {
-    toastMessage,
-    toastVariant,
-    showToast,
-    setShowToast,
-    showNotification,
-  } = useToast();
+  const isInApp = useMemo(() => isInAppBrowserUA(), []);
 
-  useEffect(() => {
-    if (!authLoading && user) {
-      navigate("/roles", { replace: true });
-    }
-  }, [authLoading, user, navigate]);
-
+  // Finalize redirect result (mobile/in-app)
   useEffect(() => {
     (async () => {
       try {
         const res = await handleGoogleRedirectResult();
         if (res?.user) {
-          const email = res.user.email ?? "your account";
-          showNotification?.(`Google login successful: ${email}`, "success");
-          // Optionally navigate to your app's post-login page:
+          showNotification?.(
+            `Google login successful: ${res.user.email ?? ""}`,
+            "success"
+          );
           // navigate("/roles", { replace: true });
         }
-      } catch (e) {
-        console.error("Google login (redirect) error:", e);
-        showNotification?.("Google login failed", "danger");
+      } catch (err: any) {
+        const msg = err?.friendly || explainAuthError(err);
+        console.error("Google redirect error:", err);
+        showNotification?.(msg, "danger");
+      } finally {
+        setRedirectHandled(true);
       }
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // function to handle google login
-  const handleGoogleLogin = async (): Promise<void> => {
-    setLoading(true);
-    try {
-      const cred = await loginWithGooglePopup();
-      const email = cred.user.email ?? "your account";
-      showNotification(`Google login successful: ${email}`, "success");
-    } catch (error) {
-      console.error("Google login error:", error);
-      showNotification("Google login failed", "danger");
-    } finally {
-      setLoading(false);
-    }
-  };
+  // If already signed in, you could auto-redirect:
+  // useEffect(() => {
+  //   if (user) navigate("/roles", { replace: true });
+  // }, [user, navigate]);
 
-  // function to get form event and sign in via email
-  const handleEmailAuth = async (
-    e: FormEvent<HTMLFormElement>
-  ): Promise<void> => {
-    e.preventDefault();
-    setLoading(true);
+  const onGoogleClick = async () => {
+    setBusy(true);
     try {
-      if (isRegister) {
-        await signupWithEmail(email, password, {
-          systemRole: "volunteer",
-          roleIds: [],
-          createdAt: Date.now(),
-          email,
-        } as any);
-        showNotification(`Account created: ${email}`, "success");
-      } else {
-        await loginWithEmail(email, password);
-        showNotification(`Logged in: ${email}`, "success");
+      const cred = await loginWithGoogleSmart();
+      // Redirect path returns null; success will be processed above in the effect
+      if (cred?.user) {
+        showNotification?.(
+          `Google login successful: ${cred.user.email ?? ""}`,
+          "success"
+        );
+        // navigate("/roles", { replace: true });
       }
-    } catch (error) {
-      console.error(`${isRegister ? "Signup" : "Login"} error:`, error);
-      showNotification(`${isRegister ? "Signup" : "Login"} failed`, "danger");
+    } catch (err: any) {
+      const msg = err?.friendly || explainAuthError(err);
+      console.error("Google login error:", err);
+      showNotification?.(msg, "danger");
     } finally {
-      setLoading(false);
+      setBusy(false);
     }
-  };
-
-  // function to reset password
-  const handlePasswordReset = async (): Promise<void> => {
-    // check if there is an email entered
-    if (!email) {
-      showNotification("Please enter your email to reset password", "warning");
-      return;
-    }
-    setLoading(true);
-    try {
-      // show success notification
-      await resetPassword(email);
-      showNotification("Password reset email sent!", "success");
-    } catch (error) {
-      // show error notification and log to console
-      console.error("❌ Password reset error:", error);
-      showNotification("Failed to send reset email", "danger");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // render idonc for toast based on variant
-  const renderToastIcon = () => {
-    if (toastVariant === "success") return <CheckCircleFill className="me-2" />;
-    if (toastVariant === "danger") return <XCircleFill className="me-2" />;
-    if (toastVariant === "warning")
-      return <ExclamationTriangleFill className="me-2" />;
-    return null;
   };
 
   return (
-    <div className="d-flex justify-content-center align-items-center min-vh-100 bg-dark p-3">
-      <Card className="p-4 shadow" style={{ width: "100%", maxWidth: "400px" }}>
-        <h3 className="text-center mb-4">
-          {isRegister ? "Create Account" : "Welcome Back"}
-        </h3>
+    <div className="container py-5 d-flex justify-content-center">
+      <Card style={{ maxWidth: 420, width: "100%" }}>
+        <Card.Body>
+          <h4 className="mb-3 text-center">Sign in</h4>
 
-        {/* Google Login button */}
-        <Button
-          variant="outline-primary"
-          onClick={handleGoogleLogin}
-          disabled={loading}
-          className="w-100 d-flex align-items-center justify-content-center gap-2 mb-3"
-        >
-          {loading ? <Spinner animation="border" size="sm" /> : <Google />}
-          Continue with Google
-        </Button>
+          {/* In-app browser heads-up */}
+          {isInApp && (
+            <Alert variant="warning">
+              You appear to be using an in-app browser. If Google sign-in fails,
+              tap the <strong>•••</strong> menu and choose{" "}
+              <strong>Open in Browser</strong>, then try again.
+            </Alert>
+          )}
 
-        <div className="d-flex align-items-center my-3">
-          <div className="flex-grow-1 border-bottom" />
-          <span className="mx-2 text-muted">or</span>
-          <div className="flex-grow-1 border-bottom" />
-        </div>
-
-        {/* Login form form for email and password */}
-        <Form onSubmit={handleEmailAuth}>
-          {/* Email Input */}
-          <Form.Group className="mb-3" controlId="formEmail">
-            <Form.Control
-              type="email"
-              placeholder="Enter your email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-            />
-          </Form.Group>
-
-          {/* Password Input */}
-          <Form.Group className="mb-3" controlId="formPassword">
-            <Form.Control
-              type="password"
-              placeholder="Enter your password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-            />
-          </Form.Group>
-
-          {/* Login Button. Disabled while authenticating */}
           <Button
-            type="submit"
-            variant="primary"
-            disabled={loading}
-            className="w-100 d-flex align-items-center justify-content-center gap-2"
+            variant="outline-primary"
+            className="w-100 mb-3"
+            onClick={onGoogleClick}
+            disabled={busy || (!!user && !redirectHandled)}
           >
-            {loading && <Spinner animation="border" size="sm" />}
-            {isRegister ? "Sign Up with Email" : "Login with Email"}
+            {busy ? (
+              <>
+                <Spinner size="sm" animation="border" className="me-2" />
+                Signing in…
+              </>
+            ) : (
+              "Continue with Google"
+            )}
           </Button>
-        </Form>
 
-        {/* Reset Password link */}
-        {!isRegister && (
-          <div className="text-center mt-3">
-            <Button
-              variant="link"
-              size="sm"
-              onClick={handlePasswordReset}
-              disabled={loading}
-            >
-              Forgot Password?
-            </Button>
-          </div>
-        )}
-
-        {/* Button to switch from register to login option */}
-        <div className="text-center mt-3 text-muted">
-          {isRegister ? "Already have an account?" : "Don't have an account?"}{" "}
-          <Button
-            variant="link"
-            size="sm"
-            onClick={() => setIsRegister(!isRegister)}
-          >
-            {isRegister ? "Login" : "Sign Up"}
-          </Button>
-        </div>
+          {/* (Optional) add email/password inputs if you support them */}
+        </Card.Body>
       </Card>
-
-      {/* Toast Notification */}
-      <ToastContainer position="bottom-center" className="mb-4">
-        <Toast
-          onClose={() => setShowToast(false)}
-          show={showToast}
-          delay={3000}
-          autohide
-          bg={toastVariant}
-        >
-          <Toast.Header closeButton>
-            {renderToastIcon()}
-            <strong className="me-auto text-capitalize">{toastVariant}</strong>
-          </Toast.Header>
-          <Toast.Body className="text-white d-flex align-items-center">
-            {toastMessage}
-          </Toast.Body>
-        </Toast>
-      </ToastContainer>
     </div>
   );
 }

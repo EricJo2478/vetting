@@ -18,6 +18,34 @@ import { UserDoc } from "../types/User";
 
 const googleProvider = new GoogleAuthProvider();
 
+/** Ensure session persists across reloads (ignore if configured elsewhere). */
+try {
+  setPersistence(auth, browserLocalPersistence);
+} catch {
+  /* no-op */
+}
+
+/** Human-friendly messages for common Firebase Auth errors */
+export function explainAuthError(err: any): string {
+  const code = err?.code || "";
+  switch (code) {
+    case "auth/unauthorized-domain":
+      return "This domain isn’t authorized in Firebase Authentication. Add your site’s domain under Authentication → Settings → Authorized domains.";
+    case "auth/operation-not-supported-in-this-environment":
+      return "Sign-in isn’t supported in this browser context (often an in-app browser). Try opening in your device’s default browser.";
+    case "auth/network-request-failed":
+      return "Network error during Google sign-in. Check your connection and try again.";
+    case "auth/popup-blocked":
+      return "The sign-in popup was blocked. Try again or use the ‘Continue with Google’ button that opens a new tab.";
+    case "auth/popup-closed-by-user":
+      return "The sign-in popup was closed before completing. Try again.";
+    case "auth/cancelled-popup-request":
+      return "Another sign-in is already in progress. Try again.";
+    default:
+      return err?.message || "Google sign-in failed.";
+  }
+}
+
 // Sign up with email & password
 export async function signupWithEmail(
   email: string,
@@ -104,14 +132,26 @@ function isInAppBrowser() {
  */
 export async function loginWithGoogleSmart(): Promise<UserCredential | null> {
   const provider = new GoogleAuthProvider();
+  // helpful when users have multiple Google accounts
+  provider.setCustomParameters({ prompt: "select_account" });
 
   if (isProbablyMobile() || isInAppBrowser()) {
-    await signInWithRedirect(auth, provider);
-    return null; // browser navigates; result is handled later
+    try {
+      await signInWithRedirect(auth, provider);
+      return null; // browser navigates; result handled by handleGoogleRedirectResult
+    } catch (err) {
+      // surface a helpful error upstream
+      (err as any).friendly = explainAuthError(err);
+      throw err;
+    }
   }
 
-  // Desktop/regular browsers → popup
-  return await signInWithPopup(auth, provider);
+  try {
+    return await signInWithPopup(auth, provider);
+  } catch (err) {
+    (err as any).friendly = explainAuthError(err);
+    throw err;
+  }
 }
 
 /** Call once on load (e.g., Login page) to finalize a prior redirect login. */
